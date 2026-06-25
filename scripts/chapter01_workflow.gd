@@ -32,6 +32,7 @@ var prompt_label: Label
 var progress_label: Label
 var target_label: Label
 var confidence_label: Label
+var target_card_label: Label
 var fade_rect: ColorRect
 var chapter_banner: Label
 var target_node: Node2D
@@ -54,12 +55,19 @@ var task_resolved := false
 var transition_in_progress := false
 var chapter_complete := false
 var last_result: WorkflowResult
+var initial_task_index := 0
+var initial_blocks: Array[String] = []
+var intro_tip_shown := false
+
+func configure_stage(next_task_index: int, blocks: Array[String]) -> void:
+	initial_task_index = clampi(next_task_index, 0, CHAPTER_TASK_COUNT - 1)
+	initial_blocks = blocks.duplicate()
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_build_targets()
 	_build_world()
-	_load_task(0)
+	_load_task(initial_task_index)
 
 func _process(_delta: float) -> void:
 	_animate_pickups()
@@ -158,12 +166,42 @@ func _add_target(
 ) -> void:
 	var target: EncounterTarget = EncounterTarget.new()
 	target.configure(target_id, title, kind, required_action, required_evidence, confidence_required, base_risk, risk_limit, intro_text, success_text, unresolved_text, color, position)
+	target.evidence_text = _evidence_text(required_evidence)
+	target.action_text = _action_text(required_action)
+	target.first_hint = unresolved_text
+	target.failure_hint = unresolved_text
 	targets.append(target)
+
+func _evidence_text(evidence: Array[String]) -> String:
+	var names: Array[String] = []
+	for i in range(evidence.size()):
+		var evidence_id: String = evidence[i]
+		if evidence_id == "visual":
+			names.append("视觉证据")
+		elif evidence_id == "audio":
+			names.append("声音证据")
+		elif evidence_id == "memory":
+			names.append("记忆证据")
+		elif evidence_id == "relation":
+			names.append("关系比较")
+		elif evidence_id == "steady":
+			names.append("稳定风险")
+		else:
+			names.append(evidence_id)
+	return " + ".join(names)
+
+func _action_text(action: String) -> String:
+	if action == "Quiet":
+		return "Quiet：把噪声收回来"
+	return "Push：轻轻推动世界"
 
 func _build_world() -> void:
 	inventory = BlockInventoryScript.new()
 	inventory.changed.connect(_on_inventory_changed)
 	add_child(inventory)
+	for i in range(initial_blocks.size()):
+		var block_id: String = initial_blocks[i]
+		inventory.add_block(block_id)
 
 	_add_background()
 	level_root = Node2D.new()
@@ -392,6 +430,25 @@ func _add_ui() -> void:
 	progress_label.modulate = Color(0.66, 0.70, 0.86)
 	hud.add_child(progress_label)
 
+	var target_card := PanelContainer.new()
+	target_card.position = Vector2(754, 112)
+	target_card.custom_minimum_size = Vector2(480, 236)
+	target_card.add_theme_stylebox_override("panel", _make_panel_style(Color(0.035, 0.040, 0.060, 0.88), Color(0.32, 0.40, 0.62, 0.78), 8))
+	hud.add_child(target_card)
+
+	var target_margin := MarginContainer.new()
+	target_margin.add_theme_constant_override("margin_left", 12)
+	target_margin.add_theme_constant_override("margin_right", 12)
+	target_margin.add_theme_constant_override("margin_top", 10)
+	target_margin.add_theme_constant_override("margin_bottom", 10)
+	target_card.add_child(target_margin)
+
+	target_card_label = Label.new()
+	target_card_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	target_card_label.add_theme_font_size_override("font_size", 16)
+	target_card_label.modulate = Color(0.86, 0.88, 1.0)
+	target_margin.add_child(target_card_label)
+
 	prompt_label = Label.new()
 	prompt_label.position = Vector2(0, 662)
 	prompt_label.size = Vector2(1280, 34)
@@ -459,13 +516,54 @@ func _load_task(next_index: int) -> void:
 	_add_task_target(target)
 	_add_pickups_for_task()
 	_add_task_door()
+	_add_guidance_note(target)
 	builder.set_goal_hint(target.title, "运行 workflow，读 trace，再调整节点")
 	_say(target.intro_text)
 	_show_room_banner(target.title)
+	if not intro_tip_shown:
+		intro_tip_shown = true
+		_show_chapter_tip()
 	_update_guidance()
 
 func _current_target() -> EncounterTarget:
 	return targets[task_index]
+
+func _add_guidance_note(target: EncounterTarget) -> void:
+	var note := PanelContainer.new()
+	note.position = Vector2(146, FLOOR_Y - 156)
+	note.custom_minimum_size = Vector2(360, 58)
+	note.add_theme_stylebox_override("panel", _make_panel_style(Color(0.10, 0.105, 0.145, 0.82), Color(0.40, 0.46, 0.68, 0.58), 6))
+	level_root.add_child(note)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
+	note.add_child(margin)
+
+	var label := Label.new()
+	label.text = target.first_hint
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.modulate = Color(0.80, 0.82, 0.94)
+	margin.add_child(label)
+
+func _show_chapter_tip() -> void:
+	var tip := Label.new()
+	tip.text = "运行不是答案，trace 才是答案的影子。\n失败后读 trace，再改 workflow。"
+	tip.position = Vector2(0, 292)
+	tip.size = Vector2(1280, 82)
+	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tip.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	tip.add_theme_font_size_override("font_size", 24)
+	tip.modulate = Color(0.92, 0.92, 1.0, 0.0)
+	tip.z_index = 32
+	add_child(tip)
+	var tween := create_tween()
+	tween.tween_property(tip, "modulate:a", 1.0, 0.28)
+	tween.tween_interval(1.80)
+	tween.tween_property(tip, "modulate:a", 0.0, 0.40)
+	tween.finished.connect(func(): tip.queue_free())
 
 func _add_task_target(target: EncounterTarget) -> void:
 	target_node = Node2D.new()
@@ -695,24 +793,139 @@ func run_friend_workflow(actor: Node2D, sequence: Array[String]) -> bool:
 	var target: EncounterTarget = _current_target()
 	var result: WorkflowResult = WorkflowEvaluator.evaluate(sequence, target)
 	last_result = result
-	builder.set_workflow_feedback(result.summary(), result.trace)
+	builder.set_workflow_feedback(result.summary(), result.trace, result.next_hint)
 
 	var approach := target.position + Vector2(-90, 28)
 	var move_tween := create_tween()
 	move_tween.tween_property(actor, "global_position", approach, 0.38).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	await move_tween.finished
 
-	for i in range(result.trace.size()):
-		var line: String = result.trace[i]
-		_say(line)
-		await get_tree().create_timer(0.24).timeout
+	for i in range(result.steps.size()):
+		var step: Dictionary = result.steps[i]
+		await _play_workflow_step(actor, step)
+
+	if not result.trace.is_empty():
+		var final_line: String = result.trace[result.trace.size() - 1]
+		_say(final_line)
+		await get_tree().create_timer(0.20).timeout
 
 	if result.success:
-		_resolve_target(target)
+		await _resolve_target(target)
 	else:
 		_play_feedback("error")
 		_spawn_flash(target.position, Color(0.95, 0.40, 0.72, 0.28))
 	return result.success
+
+func _play_workflow_step(actor: Node2D, step: Dictionary) -> void:
+	var block_id: String = String(step["block_id"])
+	var text: String = String(step["text"])
+	_say(text)
+	if block_id == "See":
+		await _animate_see(actor)
+	elif block_id == "Listen":
+		await _animate_listen(actor)
+	elif block_id == "Remember":
+		await _animate_remember(actor)
+	elif block_id == "Compare":
+		await _animate_compare(actor)
+	elif block_id == "Hold":
+		await _animate_hold(actor)
+	elif block_id == "Push":
+		await _animate_push(actor)
+	elif block_id == "Quiet":
+		await _animate_quiet(actor)
+	else:
+		_spawn_flash(actor.global_position, Color(0.85, 0.72, 1.0, 0.24))
+		await get_tree().create_timer(0.22).timeout
+
+func _animate_see(_actor: Node2D) -> void:
+	var scan := ColorRect.new()
+	scan.color = Color(0.56, 0.74, 1.0, 0.24)
+	scan.position = _current_target().position - Vector2(64, 78)
+	scan.size = Vector2(128, 156)
+	scan.z_index = 18
+	add_child(scan)
+	var tween := create_tween()
+	tween.tween_property(scan, "size:x", 168.0, 0.18)
+	tween.parallel().tween_property(scan, "position:x", scan.position.x - 20.0, 0.18)
+	tween.tween_property(scan, "modulate:a", 0.0, 0.18)
+	await tween.finished
+	scan.queue_free()
+
+func _animate_listen(_actor: Node2D) -> void:
+	for i in range(3):
+		var ring := ColorRect.new()
+		ring.color = Color(0.70, 0.90, 1.0, 0.18)
+		ring.position = _current_target().position - Vector2(18 + i * 12, 18 + i * 12)
+		ring.size = Vector2(36 + i * 24, 36 + i * 24)
+		ring.z_index = 18
+		add_child(ring)
+		var tween := create_tween()
+		tween.tween_property(ring, "scale", Vector2(1.55, 1.55), 0.24)
+		tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.24)
+		tween.finished.connect(func(): ring.queue_free())
+	await get_tree().create_timer(0.30).timeout
+
+func _animate_remember(actor: Node2D) -> void:
+	for i in range(4):
+		var shard := ColorRect.new()
+		shard.color = Color(0.78, 0.66, 1.0, 0.70)
+		shard.position = actor.global_position + Vector2(-28 + i * 18, -48)
+		shard.size = Vector2(8, 8)
+		shard.z_index = 18
+		add_child(shard)
+		var tween := create_tween()
+		tween.tween_property(shard, "position", actor.global_position + Vector2(-4, -22), 0.30)
+		tween.parallel().tween_property(shard, "modulate:a", 0.0, 0.30)
+		tween.finished.connect(func(): shard.queue_free())
+	await get_tree().create_timer(0.34).timeout
+
+func _animate_compare(actor: Node2D) -> void:
+	var line := Line2D.new()
+	line.width = 3.0
+	line.default_color = Color(0.86, 0.86, 1.0, 0.62)
+	line.points = PackedVector2Array([actor.global_position, _current_target().position, door.global_position])
+	line.z_index = 18
+	add_child(line)
+	var tween := create_tween()
+	tween.tween_property(line, "modulate:a", 0.0, 0.34)
+	await tween.finished
+	line.queue_free()
+
+func _animate_hold(actor: Node2D) -> void:
+	var ring := ColorRect.new()
+	ring.color = Color(0.64, 0.90, 0.84, 0.22)
+	ring.position = actor.global_position - Vector2(44, 54)
+	ring.size = Vector2(88, 88)
+	ring.z_index = 18
+	add_child(ring)
+	var tween := create_tween()
+	tween.tween_property(ring, "scale", Vector2(1.28, 1.28), 0.30)
+	tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.30)
+	await tween.finished
+	ring.queue_free()
+
+func _animate_push(actor: Node2D) -> void:
+	var start_pos := actor.global_position
+	var tween := create_tween()
+	tween.tween_property(actor, "global_position", start_pos + Vector2(24, 0), 0.16)
+	tween.tween_property(actor, "global_position", start_pos, 0.16)
+	tween.parallel().tween_property(target_node, "position:x", target_node.position.x + 8.0, 0.16)
+	await tween.finished
+
+func _animate_quiet(_actor: Node2D) -> void:
+	for i in range(5):
+		var mote := ColorRect.new()
+		mote.color = Color(0.90, 0.76, 1.0, 0.46)
+		mote.position = _current_target().position + Vector2(-54 + i * 22, -56 + (i % 2) * 24)
+		mote.size = Vector2(10, 10)
+		mote.z_index = 18
+		add_child(mote)
+		var tween := create_tween()
+		tween.tween_property(mote, "position", _current_target().position + Vector2(-5, -18), 0.32)
+		tween.parallel().tween_property(mote, "modulate:a", 0.0, 0.32)
+		tween.finished.connect(func(): mote.queue_free())
+	await get_tree().create_timer(0.36).timeout
 
 func _resolve_target(target: EncounterTarget) -> void:
 	if task_resolved:
@@ -727,6 +940,13 @@ func _resolve_target(target: EncounterTarget) -> void:
 	tween.tween_property(door_visual, "modulate:a", 0.24, 0.55)
 	tween.parallel().tween_property(door_glow, "modulate:a", 0.58, 0.55)
 	tween.parallel().tween_property(target_node, "modulate:a", 0.42, 0.55)
+	if target.kind == "flower":
+		tween.parallel().tween_property(target_node, "scale", Vector2(0.82, 0.82), 0.55)
+	elif target.kind == "step":
+		tween.parallel().tween_property(target_node, "modulate", Color(0.82, 0.96, 1.0, 0.78), 0.55)
+	elif target.kind == "shadow":
+		tween.parallel().tween_property(target_node, "scale", Vector2(1.20, 0.72), 0.55)
+	await tween.finished
 
 func _on_friend_finished(success: bool) -> void:
 	if success:
@@ -784,6 +1004,22 @@ func _update_guidance() -> void:
 		confidence_label.text = last_result.summary()
 	else:
 		confidence_label.text = "置信度 --   风险 --"
+	if target_card_label != null:
+		var last_text := "上次运行：尚未运行"
+		var next_text := "下一次：%s" % target.first_hint
+		if last_result != null:
+			last_text = "上次运行：%s" % (last_result.failure_reason if not last_result.success else "任务完成")
+			next_text = "下一次：%s" % last_result.next_hint
+		target_card_label.text = "%s\n%s\n需要：%s\n终端：%s\n阈值：%d%%  风险上限：%d\n%s\n%s" % [
+			target.title,
+			target.description_text,
+			target.evidence_text,
+			target.action_text,
+			target.confidence_required,
+			target.risk_limit,
+			last_text,
+			next_text,
+		]
 
 func _update_prompt() -> void:
 	if prompt_label == null:

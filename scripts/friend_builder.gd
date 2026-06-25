@@ -19,10 +19,12 @@ var hint_label: Label
 var deploy_label: Label
 var workflow_summary_label: Label
 var trace_label: Label
+var next_hint_label: Label
 var goal_text := "See -> Push"
 var room_title := "第一扇门"
 var workflow_summary := "尚未运行 workflow"
 var workflow_trace: Array[String] = []
+var next_hint := "运行后，这里会出现下一次可以试试的方向。"
 
 func setup(block_inventory: BlockInventory) -> void:
 	inventory = block_inventory
@@ -64,6 +66,7 @@ func clear_sequence() -> void:
 func clear_workflow_feedback() -> void:
 	workflow_summary = "尚未运行 workflow"
 	workflow_trace.clear()
+	next_hint = "运行后，这里会出现下一次可以试试的方向。"
 	_refresh()
 
 func set_goal_hint(new_room_title: String, new_goal_text: String) -> void:
@@ -71,22 +74,24 @@ func set_goal_hint(new_room_title: String, new_goal_text: String) -> void:
 	goal_text = new_goal_text
 	_refresh()
 
-func set_workflow_feedback(summary: String, trace: Array[String]) -> void:
+func set_workflow_feedback(summary: String, trace: Array[String], next_hint_text: String = "") -> void:
 	workflow_summary = summary
 	workflow_trace = trace.duplicate()
+	if not next_hint_text.is_empty():
+		next_hint = next_hint_text
 	_refresh()
 
 func _build_ui() -> void:
 	var backplate := NinePatchRect.new()
 	backplate.texture = PANEL_TEXTURE
-	backplate.position = Vector2(26, 318)
-	backplate.size = Vector2(626, 348)
+	backplate.position = Vector2(26, 286)
+	backplate.size = Vector2(626, 380)
 	backplate.modulate = Color(0.48, 0.40, 0.74, 0.26)
 	add_child(backplate)
 
 	panel = PanelContainer.new()
-	panel.position = Vector2(34, 326)
-	panel.custom_minimum_size = Vector2(610, 332)
+	panel.position = Vector2(34, 294)
+	panel.custom_minimum_size = Vector2(610, 364)
 	panel.add_theme_stylebox_override("panel", _make_panel_style())
 	add_child(panel)
 
@@ -133,6 +138,13 @@ func _build_ui() -> void:
 	trace_label.add_theme_font_size_override("font_size", 16)
 	trace_label.modulate = Color(0.74, 0.78, 0.92)
 	box.add_child(trace_label)
+
+	next_hint_label = Label.new()
+	next_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	next_hint_label.custom_minimum_size = Vector2(540, 34)
+	next_hint_label.add_theme_font_size_override("font_size", 16)
+	next_hint_label.modulate = Color(0.92, 0.86, 1.0)
+	box.add_child(next_hint_label)
 
 	hint_label = Label.new()
 	hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -223,6 +235,7 @@ func _refresh() -> void:
 	routine_label.text = "Workflow  " + (" -> ".join(sequence) if not sequence.is_empty() else "等待连接")
 	workflow_summary_label.text = workflow_summary
 	trace_label.text = _trace_text()
+	next_hint_label.text = "下一次可以试试：%s" % next_hint
 	hint_label.text = "按 1-7 选择已拥有的节点，Backspace 撤回，Enter 运行。%s 想听见：%s。" % [room_title, goal_text]
 	deploy_label.text = "Enter 释放朋友" if not sequence.is_empty() else "先给朋友接上一块积木"
 

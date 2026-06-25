@@ -11,6 +11,7 @@ static func evaluate(sequence: Array[String], target: EncounterTarget) -> Workfl
 
 	if sequence.is_empty():
 		result.failure_reason = "工作流还是空的。朋友没有醒来。"
+		result.next_hint = "先接上一个观察节点，再把终端动作放在最后。"
 		result.trace.append(result.failure_reason)
 		return result
 
@@ -28,14 +29,16 @@ static func evaluate(sequence: Array[String], target: EncounterTarget) -> Workfl
 			_apply_hold(result, evidence)
 		elif TERMINAL_ACTIONS.has(block_id):
 			if terminal_index >= 0:
-				result.trace.append("%s：朋友已经发出过一个终端动作，新的动作只让它更困惑。" % block_id)
+				var duplicate_text := "%s：朋友已经发出过一个终端动作，新的动作只让它更困惑。" % block_id
+				result.add_step(block_id, 0, 12, duplicate_text, true)
 				result.risk += 12
 			else:
 				terminal_index = i
 				result.action_intent = block_id
 				_apply_terminal(result, target, block_id)
 		else:
-			result.trace.append("%s：这枚节点还没有被莉莉丝理解。" % block_id)
+			var unknown_text := "%s：这枚节点还没有被莉莉丝理解。" % block_id
+			result.add_step(block_id, 0, 10, unknown_text, false)
 			result.risk += 10
 
 	result.confidence = clampi(result.confidence, 0, 100)
@@ -51,7 +54,7 @@ static func _apply_see(result: WorkflowResult, target: EncounterTarget, evidence
 	elif target.kind == "shadow":
 		gain = 18
 	result.confidence += gain
-	result.trace.append("See：朋友看见目标轮廓，置信度 +%d%%。" % gain)
+	result.add_step("See", gain, 0, "See：朋友看见目标轮廓，置信度 +%d%%。" % gain, false)
 
 static func _apply_listen(result: WorkflowResult, target: EncounterTarget, evidence: Array[String]) -> void:
 	_add_evidence(evidence, "audio")
@@ -61,36 +64,36 @@ static func _apply_listen(result: WorkflowResult, target: EncounterTarget, evide
 	elif target.kind == "shadow":
 		gain = 36
 	result.confidence += gain
-	result.trace.append("Listen：朋友听见低声的原因，置信度 +%d%%。" % gain)
+	result.add_step("Listen", gain, 0, "Listen：朋友听见低声的原因，置信度 +%d%%。" % gain, false)
 
 static func _apply_remember(result: WorkflowResult, _target: EncounterTarget, evidence: Array[String]) -> void:
 	_add_evidence(evidence, "memory")
 	result.confidence += 24
 	result.risk -= 8
-	result.trace.append("Remember：朋友抱住刚才的事实，置信度 +24%，风险 -8。")
+	result.add_step("Remember", 24, -8, "Remember：朋友抱住刚才的事实，置信度 +24%，风险 -8。", false)
 
 static func _apply_compare(result: WorkflowResult, evidence: Array[String]) -> void:
 	if evidence.is_empty():
 		result.confidence += 8
 		result.risk += 8
-		result.trace.append("Compare：还没有证据可以比较，置信度只 +8%，风险 +8。")
+		result.add_step("Compare", 8, 8, "Compare：还没有证据可以比较，置信度只 +8%，风险 +8。", false)
 		return
 	_add_evidence(evidence, "relation")
 	var gain := 34 if evidence.has("visual") else 24
 	result.confidence += gain
-	result.trace.append("Compare：朋友把证据放在一起，置信度 +%d%%。" % gain)
+	result.add_step("Compare", gain, 0, "Compare：朋友把证据放在一起，置信度 +%d%%。" % gain, false)
 
 static func _apply_hold(result: WorkflowResult, evidence: Array[String]) -> void:
 	_add_evidence(evidence, "steady")
 	result.confidence += 10
 	result.risk -= 38
-	result.trace.append("Hold：朋友先稳住自己，置信度 +10%，风险 -38。")
+	result.add_step("Hold", 10, -38, "Hold：朋友先稳住自己，置信度 +10%，风险 -38。", false)
 
 static func _apply_terminal(result: WorkflowResult, target: EncounterTarget, block_id: String) -> void:
 	if block_id == target.required_action:
-		result.trace.append("%s：朋友准备执行终端动作，当前置信度 %d%%。" % [block_id, result.confidence])
+		result.add_step(block_id, 0, 0, "%s：朋友准备执行终端动作，当前置信度 %d%%。" % [block_id, result.confidence], true)
 	else:
-		result.trace.append("%s：这个动作碰不到“%s”的核心。" % [block_id, target.title])
+		result.add_step(block_id, 0, 0, "%s：这个动作碰不到“%s”的核心。" % [block_id, target.title], true)
 
 static func _finalize_result(result: WorkflowResult, target: EncounterTarget, evidence: Array[String], terminal_index: int, sequence_size: int) -> void:
 	var missing: Array[String] = []
@@ -101,18 +104,25 @@ static func _finalize_result(result: WorkflowResult, target: EncounterTarget, ev
 
 	if terminal_index < 0:
 		result.failure_reason = "还没有终端动作。朋友理解了一些东西，却没有决定怎么触碰世界。"
+		result.next_hint = "把 Push 或 Quiet 放到 workflow 最后。"
 	elif terminal_index < sequence_size - 1:
 		result.failure_reason = "终端动作来得太早。朋友行动之后，后面的节点已经来不及帮它。"
+		result.next_hint = "把 Push/Quiet 放到最后，让证据节点先运行。"
 	elif result.action_intent != target.required_action:
 		result.failure_reason = "%s 不是这里需要的终端动作。" % result.action_intent
+		result.next_hint = "换成目标卡里写着的终端动作。"
 	elif not missing.is_empty():
 		result.failure_reason = "缺少证据：%s。" % ", ".join(missing)
+		result.next_hint = _hint_for_missing(missing)
 	elif result.confidence < target.confidence_required:
 		result.failure_reason = "置信度还不够。需要 %d%%，现在只有 %d%%。" % [target.confidence_required, result.confidence]
+		result.next_hint = "多接一个能补证据的节点，再运行一次。"
 	elif result.risk > target.risk_limit:
 		result.failure_reason = "风险太高。朋友退回来了，避免把莉莉丝带进更深的噪声。"
+		result.next_hint = "加入 Hold，让朋友先稳住自己。"
 	else:
 		result.success = true
+		result.next_hint = "任务完成了。走向右侧的门。"
 
 	if result.success:
 		result.trace.append("%s：置信度足够，朋友轻轻完成了任务。" % result.action_intent)
@@ -122,3 +132,16 @@ static func _finalize_result(result: WorkflowResult, target: EncounterTarget, ev
 static func _add_evidence(evidence: Array[String], evidence_id: String) -> void:
 	if not evidence.has(evidence_id):
 		evidence.append(evidence_id)
+
+static func _hint_for_missing(missing: Array[String]) -> String:
+	if missing.has("audio"):
+		return "加一个 Listen，再让朋友安静下来。"
+	if missing.has("relation"):
+		return "先 Compare，再使用终端动作。"
+	if missing.has("steady"):
+		return "加入 Hold，让朋友先稳住自己。"
+	if missing.has("memory"):
+		return "加一个 Remember，让朋友抱住刚才的事实。"
+	if missing.has("visual"):
+		return "先用 See 看清目标轮廓。"
+	return "读 trace，再换一枚节点试试。"

@@ -17,6 +17,7 @@ func _init() -> void:
 func _run() -> void:
 	_test_workflow_evaluator()
 	await _test_main_start_screen()
+	await _test_stage_select_loading()
 
 	room = ROOM_SCENE.instantiate()
 	root.add_child(room)
@@ -127,10 +128,52 @@ func _test_main_start_screen() -> void:
 	await main.call("_on_workflow_chapter_completed")
 	_assert_bool(bool(main.get("awaiting_end_restart")), "main waits on ending after Chapter 1")
 	_assert_bool(main.get("current_scene") == null, "main clears Chapter 1 after ending")
+	_assert_equal(String(main.get("menu_mode")), "end", "main uses ending menu mode")
+	await main.call("return_to_title")
+	await create_timer(1.0).timeout
+	_assert_bool(bool(main.get("awaiting_start")), "main returns to title after ending")
+	_assert_equal(String(main.get("menu_mode")), "main", "main menu mode restored after ending")
+	_assert_bool(main.get("current_scene") == null, "return to title keeps gameplay scene clear")
+	await main.call("start_full_run")
+	await create_timer(1.2).timeout
+	var restarted_scene: Node = main.get("current_scene") as Node
+	_assert_equal(restarted_scene.name, "Room01", "main can start again after returning to title")
 	main.queue_free()
 	await process_frame
 	await process_frame
 	main = null
+
+func _test_stage_select_loading() -> void:
+	await _assert_stage_loads("prologue_p3", "Room01", 2, ["See", "Push", "Remember"])
+	await _assert_stage_loads("echo_steps", "Room02", -1, [])
+	await _assert_stage_loads("chapter1_4", "Chapter01Workflow", 3, ["See", "Compare", "Push", "Listen", "Quiet", "Remember", "Hold"])
+
+func _assert_stage_loads(stage_id: String, expected_scene_name: String, expected_index: int, expected_blocks: Array[String]) -> void:
+	main = MAIN_SCENE.instantiate()
+	root.add_child(main)
+	await process_frame
+	await process_frame
+	await main.call("start_stage", stage_id)
+	await create_timer(1.0).timeout
+	var loaded_scene: Node = main.get("current_scene") as Node
+	_assert_bool(loaded_scene != null, "stage loads gameplay scene")
+	_assert_equal(loaded_scene.name, expected_scene_name, "stage %s loads expected scene" % stage_id)
+	if expected_scene_name == "Room01":
+		_assert_equal(int(loaded_scene.get("chapter_level_index")), expected_index, "prologue selected room index")
+		_assert_inventory_contains(loaded_scene, expected_blocks, "prologue selected inventory")
+	elif expected_scene_name == "Chapter01Workflow":
+		_assert_equal(int(loaded_scene.get("task_index")), expected_index, "workflow selected task index")
+		_assert_inventory_contains(loaded_scene, expected_blocks, "workflow selected inventory")
+	main.queue_free()
+	await process_frame
+	await process_frame
+	main = null
+
+func _assert_inventory_contains(owner: Node, expected_blocks: Array[String], label: String) -> void:
+	var inventory: Node = owner.get("inventory") as Node
+	for i in range(expected_blocks.size()):
+		var block_id: String = expected_blocks[i]
+		_assert_bool(bool(inventory.call("has_block", block_id)), "%s contains %s" % [label, block_id])
 
 func _test_room_02() -> void:
 	room2 = ROOM_02_SCENE.instantiate()
@@ -152,13 +195,17 @@ func _test_workflow_evaluator() -> void:
 	_assert_bool(ok.success, "workflow evaluator accepts confident door workflow")
 	var missing: WorkflowResult = WorkflowEvaluator.evaluate(["See", "Push"], door)
 	_assert_bool(not missing.success, "workflow evaluator rejects missing relation evidence")
+	_assert_bool(missing.next_hint.contains("Compare"), "missing relation suggests Compare")
 	var early: WorkflowResult = WorkflowEvaluator.evaluate(["Push", "See", "Compare"], door)
 	_assert_bool(not early.success and early.failure_reason.contains("太早"), "workflow evaluator rejects early terminal action")
+	_assert_bool(early.next_hint.contains("最后"), "early terminal suggests terminal last")
 	var step: EncounterTarget = _make_eval_target("step", "不确定的台阶", "step", "Push", ["visual", "memory", "steady"], 64, 76, 48)
 	var no_hold: WorkflowResult = WorkflowEvaluator.evaluate(["Remember", "See", "Push"], step)
 	_assert_bool(not no_hold.success, "workflow evaluator rejects high-risk step workflow")
+	_assert_bool(no_hold.next_hint.contains("Hold"), "high-risk workflow suggests Hold")
 	var hold: WorkflowResult = WorkflowEvaluator.evaluate(["Remember", "See", "Hold", "Push"], step)
 	_assert_bool(hold.success, "workflow evaluator accepts Hold risk control")
+	_assert_equal(hold.steps.size(), 4, "workflow result records one step per node")
 
 func _make_eval_target(
 	target_id: String,
@@ -180,6 +227,15 @@ func _test_chapter_01_workflow() -> void:
 	await process_frame
 	await process_frame
 	_assert_equal(int(chapter1.get("task_index")), 0, "workflow chapter starts at task 0")
+	var failing_sequence: Array[String] = ["See", "Push"]
+	_add_workflow_blocks(failing_sequence)
+	chapter1.call("_deploy_friend", failing_sequence)
+	await create_timer(2.0).timeout
+	_assert_bool(not bool(chapter1.get("task_resolved")), "failed workflow does not resolve task")
+	var failed_result: WorkflowResult = chapter1.get("last_result") as WorkflowResult
+	_assert_bool(failed_result.next_hint.contains("Compare"), "chapter failure exposes actionable next hint")
+	var builder: Node = chapter1.get("builder") as Node
+	_assert_bool(String(builder.get("next_hint")).contains("Compare"), "builder displays actionable next hint")
 	await _solve_workflow_task(["See", "Compare", "Push"], 0, true)
 	await _solve_workflow_task(["See", "Listen", "Quiet"], 1, true)
 	await _solve_workflow_task(["Remember", "See", "Hold", "Push"], 2, true)

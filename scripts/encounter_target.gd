@@ -12,6 +12,11 @@ var risk_limit := 60
 var intro_text := ""
 var success_text := ""
 var unresolved_text := ""
+var description_text := ""
+var evidence_text := ""
+var action_text := ""
+var first_hint := ""
+var failure_hint := ""
 var resolved := false
 var color := Color(0.76, 0.78, 1.0)
 var position := Vector2.ZERO
@@ -42,6 +47,9 @@ func configure(
 	intro_text = new_intro_text
 	success_text = new_success_text
 	unresolved_text = new_unresolved_text
+	description_text = new_intro_text
+	first_hint = new_unresolved_text
+	failure_hint = new_unresolved_text
 	color = new_color
 	position = new_position
 

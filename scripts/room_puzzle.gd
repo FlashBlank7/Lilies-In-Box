@@ -60,9 +60,16 @@ var door_open := false
 var chapter_complete := false
 var transition_in_progress := false
 var chapter_level_index := 0
+var initial_level_index := 0
+var initial_blocks: Array[String] = []
+
+func configure_stage(level_index: int, blocks: Array[String]) -> void:
+	initial_level_index = clampi(level_index, 0, CHAPTER_LEVEL_COUNT - 1)
+	initial_blocks = blocks.duplicate()
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	chapter_level_index = initial_level_index
 	_build_world()
 	_say(_level_intro())
 	_update_guidance()
@@ -93,6 +100,9 @@ func _build_world() -> void:
 	inventory = BlockInventoryScript.new()
 	inventory.changed.connect(_on_inventory_changed)
 	add_child(inventory)
+	for i in range(initial_blocks.size()):
+		var block_id: String = initial_blocks[i]
+		inventory.add_block(block_id)
 
 	_add_background()
 	level_root = Node2D.new()
