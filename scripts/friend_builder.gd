@@ -22,7 +22,7 @@ var trace_label: Label
 var next_hint_label: Label
 var goal_text := "See -> Push"
 var room_title := "第一扇门"
-var workflow_summary := "尚未运行 workflow"
+var workflow_summary := "朋友还没有走过这一遍"
 var workflow_trace: Array[String] = []
 var next_hint := "运行后，这里会出现下一次可以试试的方向。"
 
@@ -66,7 +66,7 @@ func clear_sequence() -> void:
 	_refresh()
 
 func clear_workflow_feedback() -> void:
-	workflow_summary = "尚未运行 workflow"
+	workflow_summary = "朋友还没有走过这一遍"
 	workflow_trace.clear()
 	next_hint = "运行后，这里会出现下一次可以试试的方向。"
 	_refresh()
@@ -109,7 +109,7 @@ func _build_ui() -> void:
 	margin.add_child(box)
 
 	var title := Label.new()
-	title.text = "莉莉丝的 workflow 抽屉"
+	title.text = "莉莉丝的回声抽屉"
 	title.add_theme_font_size_override("font_size", 23)
 	title.modulate = Color(0.94, 0.90, 1.0)
 	box.add_child(title)
@@ -235,7 +235,7 @@ func _refresh() -> void:
 		else:
 			label.text = "%s  ..." % key_text
 			label.modulate = Color(0.45, 0.43, 0.52)
-	routine_label.text = "Workflow  " + (" -> ".join(sequence) if not sequence.is_empty() else "等待连接")
+	routine_label.text = "顺序  " + (" -> ".join(sequence) if not sequence.is_empty() else "等待连接")
 	workflow_summary_label.text = workflow_summary
 	trace_label.text = _trace_text()
 	next_hint_label.text = "下一次可以试试：%s" % next_hint
@@ -244,7 +244,7 @@ func _refresh() -> void:
 
 func _trace_text() -> String:
 	if workflow_trace.is_empty():
-		return "运行后，这里会留下朋友的 trace。"
+		return "运行后，这里会留下朋友的回声。"
 	var visible_lines: Array[String] = []
 	var start_index: int = max(0, workflow_trace.size() - 3)
 	for i in range(start_index, workflow_trace.size()):

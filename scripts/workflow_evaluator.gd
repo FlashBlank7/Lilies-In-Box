@@ -84,7 +84,7 @@ static func _apply_compare(result: WorkflowResult, evidence: Array[String]) -> v
 		result.add_step("Compare", 8, 8, "Compare：还没有证据可以比较，置信度只 +8%，风险 +8。", false)
 		return
 	_add_evidence(evidence, "relation")
-	var gain := 34 if evidence.has("visual") else 24
+	var gain := 34 if evidence.has("visual") else 28
 	result.confidence += gain
 	result.add_step("Compare", gain, 0, "Compare：朋友把证据放在一起，置信度 +%d%%。" % gain, false)
 
@@ -97,11 +97,11 @@ static func _apply_hold(result: WorkflowResult, evidence: Array[String]) -> void
 static func _apply_wait(result: WorkflowResult, evidence: Array[String]) -> void:
 	_add_evidence(evidence, "waiting")
 	_add_evidence(evidence, "silence")
-	result.confidence += 12
+	result.confidence += 16
 	result.risk -= 16
 	result.cost -= 16
 	result.silence += 28
-	result.add_step("Wait", 12, -16, "Wait：朋友没有立刻伸手，房间安静了一点，置信度 +12%，风险 -16。", false)
+	result.add_step("Wait", 16, -16, "Wait：朋友没有立刻伸手，房间安静了一点，置信度 +16%，风险 -16。", false)
 
 static func _apply_terminal(result: WorkflowResult, target: EncounterTarget, block_id: String) -> void:
 	if block_id == "Push":
@@ -128,10 +128,10 @@ static func _finalize_result(result: WorkflowResult, target: EncounterTarget, ev
 
 	if terminal_index < 0:
 		result.failure_reason = "还没有终端动作。朋友理解了一些东西，却没有决定怎么触碰世界。"
-		result.next_hint = "把 Push 或 Quiet 放到 workflow 最后。"
+		result.next_hint = "把目标卡写着的终端动作放到 workflow 最后。"
 	elif terminal_index < sequence_size - 1:
 		result.failure_reason = "终端动作来得太早。朋友行动之后，后面的节点已经来不及帮它。"
-		result.next_hint = "把 Push/Quiet 放到最后，让证据节点先运行。"
+		result.next_hint = "把终端动作放到最后，让证据节点先运行。"
 	elif result.action_intent != target.required_action:
 		result.failure_reason = "%s 不是这里需要的终端动作。" % result.action_intent
 		result.next_hint = "换成目标卡里写着的终端动作。"

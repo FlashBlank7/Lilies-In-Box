@@ -81,16 +81,16 @@ func _chapter_heading() -> String:
 	return "Chapter 1"
 
 func _chapter_objective_text() -> String:
-	return "目标：搭建 workflow，运行后根据 trace 调整。"
+	return "目标：接好顺序，运行后读回声，再轻轻调整。"
 
 func _inventory_goal_text() -> String:
-	return "运行 workflow，读 trace，再调整节点"
+	return "运行一次，读回声，再调整节点"
 
 func _chapter_tip_text() -> String:
-	return "运行不是答案，trace 才是答案的影子。\n失败后读 trace，再改 workflow。"
+	return "运行不是答案，回声才是答案的影子。\n失败后读一读，再改一块积木。"
 
 func _chapter_completion_text() -> String:
-	return "寂静的概率花园安静下来。莉莉丝学会了读 workflow 留下的原因。"
+	return "寂静的概率花园安静下来。莉莉丝学会了读朋友留下的回声。"
 
 func _chapter_complete_banner_text() -> String:
 	return "Chapter 1 完成\n寂静的概率花园"
@@ -109,7 +109,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("deploy_friend") and (builder == null or not builder.visible):
 		_play_feedback("error")
-		_say("朋友需要先在 workflow 抽屉里被接好。")
+		_say("朋友需要先在抽屉里被接好。")
 		get_viewport().set_input_as_handled()
 
 func _build_targets() -> void:
@@ -120,7 +120,7 @@ func _build_targets() -> void:
 		"door",
 		"Push",
 		["visual", "relation"],
-		70,
+		66,
 		24,
 		60,
 		"门在轻轻发抖。它不是锁住了，只是不确定自己是不是门。",
@@ -135,7 +135,7 @@ func _build_targets() -> void:
 		"flower",
 		"Quiet",
 		["visual", "audio"],
-		75,
+		72,
 		32,
 		62,
 		"花里有很轻的噪声。它不伤人，只让门忘记怎么安静。",
@@ -150,7 +150,7 @@ func _build_targets() -> void:
 		"step",
 		"Push",
 		["visual", "memory", "steady"],
-		64,
+		60,
 		76,
 		48,
 		"台阶一会儿出现，一会儿退回雾里。朋友如果太急，会把风险带回来。",
@@ -637,12 +637,31 @@ func _add_task_target(target: EncounterTarget) -> void:
 		_add_door_target(target_node, target.color)
 
 	var label := Label.new()
-	label.text = target.kind
+	label.text = _target_kind_label(target.kind)
 	label.position = Vector2(-64, 34)
 	label.size = Vector2(128, 28)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.modulate = Color(0.78, 0.80, 0.94)
 	target_node.add_child(label)
+
+func _target_kind_label(kind: String) -> String:
+	if kind == "door":
+		return "门"
+	if kind == "flower":
+		return "低声花"
+	if kind == "step":
+		return "台阶"
+	if kind == "shadow":
+		return "影子"
+	if kind == "blank":
+		return "空白"
+	if kind == "bell":
+		return "铃"
+	if kind == "letter":
+		return "纸"
+	if kind == "name":
+		return "名字"
+	return kind
 
 func _add_door_target(parent: Node2D, color: Color) -> void:
 	var body := ColorRect.new()
@@ -843,14 +862,14 @@ func _try_pickup() -> void:
 	var nearest: Area2D = _nearest_pickup(86.0)
 	if nearest == null:
 		_play_feedback("error")
-		_say("这里没有新的节点。她先读一读上次运行留下的 trace。")
+		_say("这里没有新的积木。她先读一读上次留下的回声。")
 		return
 	var block_id: String = String(nearest.get_meta("block_id"))
 	inventory.add_block(block_id)
 	pickups.erase(nearest)
 	nearest.monitoring = false
 	_play_feedback("pickup")
-	_say("%s 节点落进抽屉。它不是技能，只是一种让朋友判断世界的方法。" % block_id)
+	_say("%s 落进抽屉。它不是技能，只是一种让朋友碰到世界的方法。" % block_id)
 	var tween := create_tween()
 	tween.tween_property(nearest, "scale", Vector2(1.34, 1.34), 0.14)
 	tween.parallel().tween_property(nearest, "modulate:a", 0.0, 0.14)
@@ -894,7 +913,7 @@ func _deploy_friend(sequence: Array[String]) -> void:
 		return
 	builder.visible = false
 	_play_feedback("friend")
-	_say("朋友从节点之间醒来。它会运行一次，然后把原因留给莉莉丝。")
+	_say("朋友从积木之间醒来。它会走一次，然后把回声留给莉莉丝。")
 	friend.begin(sequence, self, player.global_position + Vector2(66, -4))
 
 func run_friend_workflow(actor: Node2D, sequence: Array[String]) -> bool:
@@ -1118,9 +1137,9 @@ func _resolve_target(target: EncounterTarget) -> void:
 func _on_friend_finished(success: bool) -> void:
 	if success:
 		builder.clear_sequence()
-		_say("workflow 跑完了。朋友把结果留在抽屉里，等莉莉丝走向门。")
+		_say("朋友跑完了。回声留在抽屉里，等莉莉丝走向前方。")
 	else:
-		_say("workflow 没有完成任务，但 trace 留下来了。改一枚节点再试。")
+		_say("朋友没有完成这件事，但回声留下来了。改一枚节点再试。")
 		var tween := create_tween()
 		tween.tween_property(friend, "modulate:a", 0.0, 0.22)
 		await tween.finished
@@ -1193,13 +1212,13 @@ func _update_prompt() -> void:
 	if prompt_label == null:
 		return
 	if active_pickup != null:
-		prompt_label.text = "按 E 拾取 workflow 节点"
+		prompt_label.text = "按 E 拾取抽屉积木"
 	elif task_resolved:
-		prompt_label.text = "任务完成。走向右侧的门。"
+		prompt_label.text = "房间安静了一点。走向右侧。"
 	elif builder != null and builder.visible:
-		prompt_label.text = "按 1-7 接节点，Enter 运行，读 trace 后再调整。"
+		prompt_label.text = "按 1-9/0 接节点，Enter 运行，读回声后再调整。"
 	else:
-		prompt_label.text = "Tab 打开 workflow 抽屉。失败不是惩罚，是新的反馈。"
+		prompt_label.text = "Tab 打开抽屉。失败不是惩罚，是新的回声。"
 
 func _on_inventory_changed(_blocks: Array[String]) -> void:
 	if builder != null:
