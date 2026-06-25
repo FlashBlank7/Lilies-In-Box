@@ -86,14 +86,14 @@ func set_workflow_feedback(summary: String, trace: Array[String], next_hint_text
 func _build_ui() -> void:
 	var backplate := NinePatchRect.new()
 	backplate.texture = PANEL_TEXTURE
-	backplate.position = Vector2(26, 286)
-	backplate.size = Vector2(626, 380)
+	backplate.position = Vector2(24, 334)
+	backplate.size = Vector2(650, 314)
 	backplate.modulate = Color(0.48, 0.40, 0.74, 0.26)
 	add_child(backplate)
 
 	panel = PanelContainer.new()
-	panel.position = Vector2(34, 294)
-	panel.custom_minimum_size = Vector2(610, 364)
+	panel.position = Vector2(32, 342)
+	panel.custom_minimum_size = Vector2(634, 298)
 	panel.add_theme_stylebox_override("panel", _make_panel_style())
 	add_child(panel)
 
@@ -105,7 +105,7 @@ func _build_ui() -> void:
 	panel.add_child(margin)
 
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 12)
+	box.add_theme_constant_override("separation", 8)
 	margin.add_child(box)
 
 	var title := Label.new()
@@ -115,7 +115,7 @@ func _build_ui() -> void:
 	box.add_child(title)
 
 	var inventory_grid := GridContainer.new()
-	inventory_grid.columns = 4
+	inventory_grid.columns = 5
 	inventory_grid.add_theme_constant_override("h_separation", 8)
 	inventory_grid.add_theme_constant_override("v_separation", 8)
 	box.add_child(inventory_grid)
@@ -136,21 +136,21 @@ func _build_ui() -> void:
 
 	trace_label = Label.new()
 	trace_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	trace_label.custom_minimum_size = Vector2(540, 56)
+	trace_label.custom_minimum_size = Vector2(570, 44)
 	trace_label.add_theme_font_size_override("font_size", 16)
 	trace_label.modulate = Color(0.74, 0.78, 0.92)
 	box.add_child(trace_label)
 
 	next_hint_label = Label.new()
 	next_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	next_hint_label.custom_minimum_size = Vector2(540, 34)
+	next_hint_label.custom_minimum_size = Vector2(570, 30)
 	next_hint_label.add_theme_font_size_override("font_size", 16)
 	next_hint_label.modulate = Color(0.92, 0.86, 1.0)
 	box.add_child(next_hint_label)
 
 	hint_label = Label.new()
 	hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint_label.custom_minimum_size = Vector2(540, 48)
+	hint_label.custom_minimum_size = Vector2(570, 34)
 	hint_label.modulate = Color(0.78, 0.76, 0.88)
 	box.add_child(hint_label)
 
@@ -161,7 +161,7 @@ func _build_ui() -> void:
 
 func _make_slot_label() -> Label:
 	var label := Label.new()
-	label.custom_minimum_size = Vector2(132, 38)
+	label.custom_minimum_size = Vector2(112, 34)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", 16)

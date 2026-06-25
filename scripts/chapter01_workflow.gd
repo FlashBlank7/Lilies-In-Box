@@ -945,7 +945,11 @@ func run_friend_workflow(actor: Node2D, sequence: Array[String]) -> bool:
 		_update_noise_overlay()
 		_play_feedback("error")
 		_spawn_flash(target.position, Color(0.95, 0.40, 0.72, 0.28))
+		_on_workflow_failed(target, result)
 	return result.success
+
+func _on_workflow_failed(_target: EncounterTarget, _result: WorkflowResult) -> void:
+	pass
 
 func _update_noise_overlay() -> void:
 	if noise_overlay == null:

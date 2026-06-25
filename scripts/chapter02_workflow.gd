@@ -95,6 +95,14 @@ func _add_background() -> void:
 		strip.rotation = -0.08
 		strip.z_index = -81
 		add_child(strip)
+	for i in range(5):
+		var blank := ColorRect.new()
+		blank.color = Color(0.82, 0.80, 1.0, 0.055)
+		blank.position = Vector2(116 + i * 218, 430 - (i % 2) * 42)
+		blank.size = Vector2(46, 46)
+		blank.rotation = 0.12 - i * 0.035
+		blank.z_index = -78
+		add_child(blank)
 
 func _add_pickups_for_task() -> void:
 	var nodes: Array[String] = []
@@ -110,3 +118,16 @@ func _add_pickups_for_task() -> void:
 		var block_id: String = nodes[i]
 		if not inventory.has_block(block_id):
 			_create_pickup(block_id, Vector2(278 + i * 138, FLOOR_Y - 62), _block_color(block_id))
+
+func _on_workflow_failed(target: EncounterTarget, _result: WorkflowResult) -> void:
+	for i in range(6):
+		var mote := ColorRect.new()
+		mote.color = Color(0.92, 0.76, 1.0, 0.20)
+		mote.position = target.position + Vector2(-52 + i * 19, -70 + (i % 3) * 18)
+		mote.size = Vector2(8, 8)
+		mote.z_index = 19
+		add_child(mote)
+		var tween := create_tween()
+		tween.tween_property(mote, "position:y", mote.position.y - 26.0, 0.55)
+		tween.parallel().tween_property(mote, "modulate:a", 0.0, 0.55)
+		tween.finished.connect(func(): mote.queue_free())

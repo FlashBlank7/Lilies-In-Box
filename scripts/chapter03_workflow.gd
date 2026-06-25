@@ -1,6 +1,7 @@
 extends "res://scripts/chapter01_workflow.gd"
 
 var remembered_failures := 0
+var echo_marks: Array[ColorRect] = []
 
 func _chapter_heading() -> String:
 	return "Chapter 3"
@@ -95,6 +96,7 @@ func _add_background() -> void:
 		paper.rotation = -0.08 + i * 0.025
 		paper.z_index = -80
 		add_child(paper)
+	_restore_echo_marks()
 
 func _add_pickups_for_task() -> void:
 	var nodes: Array[String] = []
@@ -115,5 +117,24 @@ func run_friend_workflow(actor: Node2D, sequence: Array[String]) -> bool:
 	var success: bool = await super.run_friend_workflow(actor, sequence)
 	if not success:
 		remembered_failures += 1
+		_add_echo_mark(remembered_failures - 1, true)
 		_say("那句回声被抽屉记住了。")
 	return success
+
+func _restore_echo_marks() -> void:
+	for i in range(remembered_failures):
+		_add_echo_mark(i, false)
+
+func _add_echo_mark(index: int, animated: bool) -> void:
+	var mark := ColorRect.new()
+	mark.color = Color(0.86, 0.84, 1.0, 0.16)
+	mark.position = Vector2(62 + (index % 5) * 32, 238 + int(index / 5) * 26)
+	mark.size = Vector2(24, 18)
+	mark.rotation = -0.16 + (index % 4) * 0.08
+	mark.z_index = -18
+	add_child(mark)
+	echo_marks.append(mark)
+	if animated:
+		mark.modulate.a = 0.0
+		var tween := create_tween()
+		tween.tween_property(mark, "modulate:a", 1.0, 0.30)

@@ -72,3 +72,17 @@ func _add_task_door() -> void:
 	door_visual.position = Vector2(-42, -58)
 	door_visual.size = Vector2(84, 36)
 	door.add_child(door_visual)
+
+func _resolve_target(target: EncounterTarget) -> void:
+	await super._resolve_target(target)
+	var name_label := Label.new()
+	name_label.text = "莉莉丝"
+	name_label.position = target.position + Vector2(-52, -110)
+	name_label.size = Vector2(140, 34)
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.add_theme_font_size_override("font_size", 24)
+	name_label.modulate = Color(0.96, 0.94, 1.0, 0.0)
+	name_label.z_index = 22
+	add_child(name_label)
+	var tween := create_tween()
+	tween.tween_property(name_label, "modulate:a", 1.0, 0.70)
