@@ -602,7 +602,7 @@ func _show_chapter_tip() -> void:
 	add_child(tip)
 	var tween := create_tween()
 	tween.tween_property(tip, "modulate:a", 1.0, 0.28)
-	tween.tween_interval(1.80)
+	tween.tween_interval(1.10)
 	tween.tween_property(tip, "modulate:a", 0.0, 0.40)
 	tween.finished.connect(func(): tip.queue_free())
 
@@ -909,7 +909,7 @@ func _animate_target() -> void:
 func _deploy_friend(sequence: Array[String]) -> void:
 	if friend.active:
 		_play_feedback("error")
-		_say("上一个 workflow 还在运行。先等 trace 写完。")
+		_say("上一个顺序还在运行。先等回声写完。")
 		return
 	builder.visible = false
 	_play_feedback("friend")
@@ -1182,13 +1182,13 @@ func _show_room_banner(text: String) -> void:
 	chapter_banner.modulate.a = 0.0
 	var tween := create_tween()
 	tween.tween_property(chapter_banner, "modulate:a", 1.0, 0.22)
-	tween.tween_interval(1.24)
-	tween.tween_property(chapter_banner, "modulate:a", 0.0, 0.36)
+	tween.tween_interval(0.82)
+	tween.tween_property(chapter_banner, "modulate:a", 0.0, 0.28)
 
 func _update_guidance() -> void:
 	var target: EncounterTarget = _current_target()
 	objective_label.text = _chapter_objective_text()
-	target_label.text = "%s  需要终端动作：%s" % [target.title, target.required_action]
+	target_label.text = "%s  需要收尾动作：%s" % [target.title, target.required_action]
 	progress_label.text = "任务 %d/%d" % [task_index + 1, _task_count()]
 	if last_result != null:
 		confidence_label.text = last_result.summary()
@@ -1200,7 +1200,7 @@ func _update_guidance() -> void:
 		if last_result != null:
 			last_text = "上次运行：%s" % (last_result.failure_reason if not last_result.success else "任务完成")
 			next_text = "下一次：%s" % last_result.next_hint
-		target_card_label.text = "%s\n%s\n需要：%s\n终端：%s\n阈值：%d%%  风险上限：%d  代价上限：%d\n%s\n%s" % [
+		target_card_label.text = "%s\n%s\n需要：%s\n收尾：%s\n阈值：%d%%  风险上限：%d  代价上限：%d\n%s\n%s" % [
 			target.title,
 			target.description_text,
 			target.evidence_text,

@@ -88,14 +88,39 @@ func _build_targets() -> void:
 
 func _add_background() -> void:
 	super._add_background()
+	var paper_wash := ColorRect.new()
+	paper_wash.color = Color(0.20, 0.18, 0.26, 0.20)
+	paper_wash.size = Vector2(1280, 568)
+	paper_wash.z_index = -89
+	add_child(paper_wash)
 	for i in range(6):
 		var paper := ColorRect.new()
-		paper.color = Color(0.90, 0.88, 1.0, 0.045)
-		paper.position = Vector2(96 + i * 190, 122 + (i % 3) * 82)
-		paper.size = Vector2(96, 58)
+		paper.color = Color(0.90, 0.88, 1.0, 0.070)
+		paper.position = Vector2(78 + i * 194, 112 + (i % 3) * 78)
+		paper.size = Vector2(122, 72)
 		paper.rotation = -0.08 + i * 0.025
 		paper.z_index = -80
 		add_child(paper)
+		var fold := Line2D.new()
+		fold.width = 2.0
+		fold.default_color = Color(0.94, 0.92, 1.0, 0.13)
+		fold.points = PackedVector2Array([
+			Vector2(0, 0),
+			Vector2(61, 38),
+			Vector2(122, 0),
+		])
+		fold.position = paper.position + Vector2(0, 3)
+		fold.rotation = paper.rotation
+		fold.z_index = -79
+		add_child(fold)
+	for i in range(4):
+		var unwritten := ColorRect.new()
+		unwritten.color = Color(0.82, 0.78, 1.0, 0.080)
+		unwritten.position = Vector2(172 + i * 246, 402 - (i % 2) * 34)
+		unwritten.size = Vector2(108, 5)
+		unwritten.rotation = 0.06
+		unwritten.z_index = -77
+		add_child(unwritten)
 	_restore_echo_marks()
 
 func _add_pickups_for_task() -> void:
@@ -127,11 +152,11 @@ func _restore_echo_marks() -> void:
 
 func _add_echo_mark(index: int, animated: bool) -> void:
 	var mark := ColorRect.new()
-	mark.color = Color(0.86, 0.84, 1.0, 0.16)
-	mark.position = Vector2(62 + (index % 5) * 32, 238 + int(index / 5) * 26)
-	mark.size = Vector2(24, 18)
+	mark.color = Color(0.86, 0.84, 1.0, 0.24)
+	mark.position = Vector2(62 + (index % 5) * 38, 236 + int(index / 5) * 30)
+	mark.size = Vector2(30, 22)
 	mark.rotation = -0.16 + (index % 4) * 0.08
-	mark.z_index = -18
+	mark.z_index = 4
 	add_child(mark)
 	echo_marks.append(mark)
 	if animated:

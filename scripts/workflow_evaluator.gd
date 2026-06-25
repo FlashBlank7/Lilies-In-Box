@@ -11,7 +11,7 @@ static func evaluate(sequence: Array[String], target: EncounterTarget) -> Workfl
 
 	if sequence.is_empty():
 		result.failure_reason = "工作流还是空的。朋友没有醒来。"
-		result.next_hint = "先接上一个观察节点，再把终端动作放在最后。"
+		result.next_hint = "先接上一个观察节点，再把收尾动作放在最后。"
 		result.trace.append(result.failure_reason)
 		return result
 
@@ -31,7 +31,7 @@ static func evaluate(sequence: Array[String], target: EncounterTarget) -> Workfl
 			_apply_wait(result, evidence)
 		elif TERMINAL_ACTIONS.has(block_id):
 			if terminal_index >= 0:
-				var duplicate_text := "%s：朋友已经发出过一个终端动作，新的动作只让它更困惑。" % block_id
+				var duplicate_text := "%s：朋友已经发出过一个收尾动作，新的动作只让它更困惑。" % block_id
 				result.add_step(block_id, 0, 12, duplicate_text, true)
 				result.risk += 12
 				result.cost += 10
@@ -115,7 +115,7 @@ static func _apply_terminal(result: WorkflowResult, target: EncounterTarget, blo
 		result.cost -= 10
 		result.silence += 22
 	if block_id == target.required_action:
-		result.add_step(block_id, 0, 0, "%s：朋友准备执行终端动作，当前置信度 %d%%。" % [block_id, result.confidence], true)
+		result.add_step(block_id, 0, 0, "%s：朋友准备收尾，当前置信度 %d%%。" % [block_id, result.confidence], true)
 	else:
 		result.add_step(block_id, 0, 0, "%s：这个动作碰不到“%s”的核心。" % [block_id, target.title], true)
 
@@ -127,14 +127,14 @@ static func _finalize_result(result: WorkflowResult, target: EncounterTarget, ev
 			missing.append(evidence_id)
 
 	if terminal_index < 0:
-		result.failure_reason = "还没有终端动作。朋友理解了一些东西，却没有决定怎么触碰世界。"
-		result.next_hint = "把目标卡写着的终端动作放到 workflow 最后。"
+		result.failure_reason = "还没有收尾动作。朋友理解了一些东西，却没有决定怎么触碰世界。"
+		result.next_hint = "把目标卡写着的收尾动作放到最后。"
 	elif terminal_index < sequence_size - 1:
-		result.failure_reason = "终端动作来得太早。朋友行动之后，后面的节点已经来不及帮它。"
-		result.next_hint = "把终端动作放到最后，让证据节点先运行。"
+		result.failure_reason = "收尾动作来得太早。朋友行动之后，后面的节点已经来不及帮它。"
+		result.next_hint = "把收尾动作放到最后，让证据节点先运行。"
 	elif result.action_intent != target.required_action:
-		result.failure_reason = "%s 不是这里需要的终端动作。" % result.action_intent
-		result.next_hint = "换成目标卡里写着的终端动作。"
+		result.failure_reason = "%s 不是这里需要的收尾动作。" % result.action_intent
+		result.next_hint = "换成目标卡里写着的收尾动作。"
 	elif not missing.is_empty():
 		result.failure_reason = "缺少证据：%s。" % ", ".join(missing)
 		result.next_hint = _hint_for_missing(missing)
@@ -146,7 +146,7 @@ static func _finalize_result(result: WorkflowResult, target: EncounterTarget, ev
 		result.next_hint = "加入 Hold，让朋友先稳住自己。"
 	elif result.cost > target.cost_limit:
 		result.failure_reason = "代价太重。朋友的光暗了一下，又慢慢退回来。"
-		result.next_hint = "加一个 Wait，或者换成更轻的终端动作。"
+		result.next_hint = "加一个 Wait，或者换成更轻的收尾动作。"
 	elif result.silence < target.silence_required:
 		result.failure_reason = "房间还太响。朋友听不见那块空白。"
 		result.next_hint = "先 Wait，让沉默多留一会儿。"
@@ -167,7 +167,7 @@ static func _hint_for_missing(missing: Array[String]) -> String:
 	if missing.has("audio"):
 		return "加一个 Listen，再让朋友安静下来。"
 	if missing.has("relation"):
-		return "先 Compare，再使用终端动作。"
+		return "先 Compare，再使用收尾动作。"
 	if missing.has("steady"):
 		return "加入 Hold，让朋友先稳住自己。"
 	if missing.has("waiting") or missing.has("silence"):
@@ -176,4 +176,4 @@ static func _hint_for_missing(missing: Array[String]) -> String:
 		return "加一个 Remember，让朋友抱住刚才的事实。"
 	if missing.has("visual"):
 		return "先用 See 看清目标轮廓。"
-	return "读 trace，再换一枚节点试试。"
+	return "读回声，再换一枚节点试试。"

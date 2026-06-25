@@ -40,12 +40,30 @@ func _build_targets() -> void:
 
 func _add_background() -> void:
 	super._add_background()
+	var blank_room := ColorRect.new()
+	blank_room.color = Color(0.012, 0.012, 0.020, 0.62)
+	blank_room.size = Vector2(1280, 568)
+	blank_room.z_index = -88
+	add_child(blank_room)
 	var hush := ColorRect.new()
-	hush.color = Color(0.92, 0.92, 1.0, 0.050)
-	hush.position = Vector2(0, 230)
-	hush.size = Vector2(1280, 140)
+	hush.color = Color(0.92, 0.92, 1.0, 0.072)
+	hush.position = Vector2(0, 226)
+	hush.size = Vector2(1280, 150)
 	hush.z_index = -79
 	add_child(hush)
+	var name_space := ColorRect.new()
+	name_space.color = Color(0.94, 0.92, 1.0, 0.075)
+	name_space.position = Vector2(468, 284)
+	name_space.size = Vector2(348, 42)
+	name_space.z_index = -76
+	add_child(name_space)
+	for i in range(4):
+		var quiet_line := ColorRect.new()
+		quiet_line.color = Color(0.86, 0.86, 1.0, 0.045)
+		quiet_line.position = Vector2(522 + i * 26, 302 + i * 18)
+		quiet_line.size = Vector2(244 - i * 34, 4)
+		quiet_line.z_index = -75
+		add_child(quiet_line)
 
 func _add_pickups_for_task() -> void:
 	var nodes: Array[String] = ["See", "Remember", "Wait", "Stop"]

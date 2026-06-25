@@ -10,7 +10,7 @@ func _inventory_goal_text() -> String:
 	return "轻一点。不是每一次运行都要碰到终点"
 
 func _chapter_tip_text() -> String:
-	return "有些 workflow 能抵达那里，\n却会让朋友暗下去。"
+	return "有些顺序能抵达那里，\n却会让朋友暗下去。"
 
 func _chapter_completion_text() -> String:
 	return "无字积木没有被拿走。它只是安静地留在莉莉丝手心。"
@@ -87,6 +87,11 @@ func _build_targets() -> void:
 
 func _add_background() -> void:
 	super._add_background()
+	var cold_wash := ColorRect.new()
+	cold_wash.color = Color(0.14, 0.10, 0.22, 0.22)
+	cold_wash.size = Vector2(1280, 568)
+	cold_wash.z_index = -89
+	add_child(cold_wash)
 	for i in range(4):
 		var strip := ColorRect.new()
 		strip.color = Color(0.78, 0.76, 1.0, 0.040)
@@ -103,6 +108,37 @@ func _add_background() -> void:
 		blank.rotation = 0.12 - i * 0.035
 		blank.z_index = -78
 		add_child(blank)
+	for i in range(6):
+		_add_background_block_outline(
+			Vector2(148 + i * 188, 176 + (i % 3) * 54),
+			Vector2(76 + (i % 2) * 30, 76 + (i % 2) * 30),
+			Color(0.86, 0.82, 1.0, 0.16),
+			-0.12 + i * 0.045
+		)
+	for i in range(3):
+		var refusal_line := ColorRect.new()
+		refusal_line.color = Color(0.96, 0.74, 0.82, 0.070)
+		refusal_line.position = Vector2(690 + i * 118, 258 + i * 58)
+		refusal_line.size = Vector2(170, 7)
+		refusal_line.rotation = -0.18
+		refusal_line.z_index = -76
+		add_child(refusal_line)
+
+func _add_background_block_outline(pos: Vector2, size: Vector2, color: Color, rotation_value: float) -> void:
+	var outline := Line2D.new()
+	outline.width = 3.0
+	outline.default_color = color
+	outline.closed = true
+	outline.points = PackedVector2Array([
+		Vector2(0, 0),
+		Vector2(size.x, 0),
+		Vector2(size.x, size.y),
+		Vector2(0, size.y),
+	])
+	outline.position = pos
+	outline.rotation = rotation_value
+	outline.z_index = -77
+	add_child(outline)
 
 func _add_pickups_for_task() -> void:
 	var nodes: Array[String] = []

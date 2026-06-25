@@ -8,7 +8,7 @@ var silence := 0
 var action_intent := ""
 var success := false
 var failure_reason := ""
-var next_hint := "读 trace，再换一枚节点试试。"
+var next_hint := "读回声，再换一枚节点试试。"
 var trace: Array[String] = []
 var steps: Array[Dictionary] = []
 
