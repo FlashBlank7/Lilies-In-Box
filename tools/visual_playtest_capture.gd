@@ -67,8 +67,21 @@ func _capture_chapter2_cost_shadow() -> void:
 	await create_timer(2.05).timeout
 	var sequence: Array[String] = ["See", "Compare", "Push"]
 	active_scene.call("_deploy_friend", sequence)
-	await create_timer(2.5).timeout
+	await create_timer(3.2).timeout
+	await _wait_for_friend_idle(active_scene)
 	await _save_viewport("chapter2_cost_shadow.png")
+	var recovery_sequence: Array[String] = ["See", "Wait", "Push"]
+	active_scene.call("_deploy_friend", recovery_sequence)
+	await create_timer(4.0).timeout
+	await _wait_for_friend_idle(active_scene)
+	await _save_viewport("chapter2_cost_recovery.png")
+
+func _wait_for_friend_idle(scene: Node) -> void:
+	var friend: Node = scene.get("friend") as Node
+	for i in range(90):
+		if friend == null or not bool(friend.get("active")):
+			return
+		await process_frame
 
 func _save_viewport(file_name: String) -> void:
 	await process_frame

@@ -9,6 +9,18 @@ signal feedback_requested(kind: String)
 const PANEL_TEXTURE := preload("res://assets/ui/button_rectangle_depth_flat.png")
 const BLOCK_ORDER: Array[String] = ["See", "Listen", "Remember", "Compare", "Hold", "Wait", "Push", "Quiet", "Refuse", "Stop"]
 const MAX_SEQUENCE_SIZE := 6
+const BLOCK_DISPLAY_NAMES := {
+	"See": "看见",
+	"Listen": "听见",
+	"Remember": "记住",
+	"Compare": "比较",
+	"Hold": "稳住",
+	"Wait": "等待",
+	"Push": "轻推",
+	"Quiet": "安静",
+	"Refuse": "收手",
+	"Stop": "停下",
+}
 
 var inventory: BlockInventory
 var sequence: Array[String] = []
@@ -214,7 +226,7 @@ func _try_add_index(index: int) -> void:
 	var block_id: String = blocks[index]
 	sequence.append(block_id)
 	feedback_requested.emit("block")
-	status_requested.emit("%s 接上去了，朋友的轮廓亮了一下。" % block_id)
+	status_requested.emit("%s 接上去了，朋友的轮廓亮了一下。" % _block_display_name(block_id))
 	sequence_changed.emit(sequence.duplicate())
 	_refresh()
 
@@ -225,7 +237,7 @@ func _remove_last() -> void:
 		return
 	var block_id: String = String(sequence.pop_back())
 	feedback_requested.emit("drawer")
-	status_requested.emit("%s 回到了抽屉里。" % block_id)
+	status_requested.emit("%s 回到了抽屉里。" % _block_display_name(block_id))
 	sequence_changed.emit(sequence.duplicate())
 	_refresh()
 
@@ -247,12 +259,12 @@ func _refresh() -> void:
 		var label: Label = inventory_slots[i]
 		var key_text := "0" if i == 9 else str(i + 1)
 		if i < blocks.size():
-			label.text = "%s  %s" % [key_text, blocks[i]]
+			label.text = "%s  %s" % [key_text, _block_display_name(blocks[i])]
 			label.modulate = Color(0.96, 0.94, 1.0)
 		else:
 			label.text = "%s  ..." % key_text
 			label.modulate = Color(0.45, 0.43, 0.52)
-	routine_label.text = "顺序  " + (" -> ".join(sequence) if not sequence.is_empty() else "等待连接")
+	routine_label.text = "顺序  " + (_sequence_display_text() if not sequence.is_empty() else "等待连接")
 	workflow_summary_label.text = workflow_summary
 	trace_label.text = _trace_text()
 	next_hint_label.text = "下一次可以试试：%s" % next_hint
@@ -283,3 +295,14 @@ func _ordered_blocks() -> Array[String]:
 		if not ordered.has(block_id):
 			ordered.append(block_id)
 	return ordered
+
+func _sequence_display_text() -> String:
+	var names: Array[String] = []
+	for i in range(sequence.size()):
+		names.append(_block_display_name(sequence[i]))
+	return " -> ".join(names)
+
+func _block_display_name(block_id: String) -> String:
+	if BLOCK_DISPLAY_NAMES.has(block_id):
+		return String(BLOCK_DISPLAY_NAMES[block_id])
+	return block_id

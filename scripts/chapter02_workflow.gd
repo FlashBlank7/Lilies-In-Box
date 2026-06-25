@@ -176,6 +176,12 @@ func _on_workflow_failed(target: EncounterTarget, _result: WorkflowResult) -> vo
 	if _result.failure_reason.contains("代价太重"):
 		_add_dim_friend_mark(target.position + Vector2(-118, 28))
 
+func _play_workflow_step(actor: Node2D, step: Dictionary) -> void:
+	await super._play_workflow_step(actor, step)
+	var block_id: String = String(step["block_id"])
+	if block_id == "Wait" or block_id == "Refuse" or block_id == "Stop":
+		_soften_dim_marks(block_id)
+
 func _add_dim_friend_mark(pos: Vector2) -> void:
 	var mark := Node2D.new()
 	mark.position = pos
@@ -213,8 +219,31 @@ func _add_dim_friend_mark(pos: Vector2) -> void:
 
 func _resolve_target(target: EncounterTarget) -> void:
 	await super._resolve_target(target)
+	_soften_dim_marks("resolve")
+
+func _soften_dim_marks(reason: String) -> void:
 	for i in range(dim_marks.size()):
 		var mark: Node2D = dim_marks[i]
-		if mark != null and is_instance_valid(mark):
-			var tween := create_tween()
-			tween.tween_property(mark, "modulate:a", 0.18, 0.42)
+		if mark == null or not is_instance_valid(mark):
+			continue
+		var target_alpha := 0.28
+		if reason == "Wait":
+			target_alpha = 0.34
+		elif reason == "Refuse" or reason == "Stop" or reason == "resolve":
+			target_alpha = 0.16
+		var tween := create_tween()
+		tween.tween_property(mark, "modulate:a", target_alpha, 0.42)
+		tween.parallel().tween_property(mark, "scale", Vector2(0.92, 0.92), 0.42)
+		_spawn_dim_glimmer(mark.global_position + Vector2(0, -32))
+
+func _spawn_dim_glimmer(pos: Vector2) -> void:
+	var glimmer := ColorRect.new()
+	glimmer.color = Color(0.96, 0.90, 1.0, 0.20)
+	glimmer.position = pos + Vector2(-8, -8)
+	glimmer.size = Vector2(16, 16)
+	glimmer.z_index = 18
+	add_child(glimmer)
+	var tween := create_tween()
+	tween.tween_property(glimmer, "position:y", glimmer.position.y - 18.0, 0.42)
+	tween.parallel().tween_property(glimmer, "modulate:a", 0.0, 0.42)
+	tween.finished.connect(func(): glimmer.queue_free())

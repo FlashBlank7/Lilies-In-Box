@@ -1188,7 +1188,7 @@ func _show_room_banner(text: String) -> void:
 func _update_guidance() -> void:
 	var target: EncounterTarget = _current_target()
 	objective_label.text = _chapter_objective_text()
-	target_label.text = "%s  需要收尾动作：%s" % [target.title, target.required_action]
+	target_label.text = "纸条 %d/%d  右侧写着她现在能听见的东西。" % [task_index + 1, _task_count()]
 	progress_label.text = "任务 %d/%d" % [task_index + 1, _task_count()]
 	if last_result != null:
 		confidence_label.text = last_result.summary()
