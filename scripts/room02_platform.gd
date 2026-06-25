@@ -36,7 +36,7 @@ var level_complete := false
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_build_world()
-	_say("第二关：回声台阶。她终于要自己跳过一点点空白。")
+	_say("序章：回声台阶。她终于要自己跳过一点点空白。")
 	_update_guidance()
 	_show_title()
 
@@ -402,7 +402,7 @@ func _add_ui() -> void:
 
 func _show_title() -> void:
 	var title := Label.new()
-	title.text = "Level 2\n回声台阶"
+	title.text = "Prologue\n回声台阶"
 	title.position = Vector2(0, 260)
 	title.size = Vector2(1280, 120)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -477,7 +477,7 @@ func _finish_level() -> void:
 	level_complete = true
 	player.set_movement_locked(true)
 	complete_sfx.play()
-	_say("她站在高处，看见盒子的边缘也会呼吸。第二关完成。")
+	_say("她站在高处，看见盒子的边缘也会呼吸。序章完成。")
 	await get_tree().create_timer(0.80).timeout
 	level_completed.emit()
 
@@ -491,7 +491,7 @@ func _update_guidance() -> void:
 	if objective_label == null:
 		return
 	if level_complete:
-		objective_label.text = "第二关完成：她听见了自己的脚步。"
+		objective_label.text = "序章完成：她听见了自己的脚步。"
 	elif door_open:
 		objective_label.text = "目标：跳到右侧门前。"
 	else:
@@ -502,7 +502,7 @@ func _update_prompt() -> void:
 	if prompt_label == null:
 		return
 	if level_complete:
-		prompt_label.text = "第二关完成"
+		prompt_label.text = "序章完成"
 	elif active_petal != null:
 		prompt_label.text = "按 E 拾起回声花瓣"
 	elif door_open:

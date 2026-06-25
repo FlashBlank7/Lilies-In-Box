@@ -2,6 +2,7 @@ extends Node2D
 
 const ROOM_01_SCENE := preload("res://scenes/Room01.tscn")
 const ROOM_02_SCENE := preload("res://scenes/Room02.tscn")
+const CHAPTER_01_SCENE := preload("res://scenes/Chapter01Workflow.tscn")
 const BG_TEXTURE := preload("res://assets/environment/gothicvania/backgrounds.png")
 
 var current_scene: Node
@@ -135,6 +136,20 @@ func _on_chapter_one_completed() -> void:
 	transitioning = false
 
 func _on_level_two_completed() -> void:
+	if transitioning:
+		return
+	transitioning = true
+	await get_tree().create_timer(1.2).timeout
+	await _fade_to(0.94, 0.52)
+	_clear_current_scene()
+	current_scene = CHAPTER_01_SCENE.instantiate()
+	add_child(current_scene)
+	if current_scene.has_signal("chapter_completed"):
+		current_scene.connect("chapter_completed", Callable(self, "_on_workflow_chapter_completed"))
+	await _fade_from(0.60)
+	transitioning = false
+
+func _on_workflow_chapter_completed() -> void:
 	if transitioning:
 		return
 	transitioning = true

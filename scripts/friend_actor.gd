@@ -35,6 +35,12 @@ func cancel() -> void:
 	room = null
 
 func _run_sequence(token: int) -> void:
+	if room != null and room.has_method("run_friend_workflow"):
+		var workflow_success: bool = await room.run_friend_workflow(self, sequence)
+		active = false
+		if token == run_token:
+			finished.emit(workflow_success)
+		return
 	var success := true
 	for i in range(sequence.size()):
 		if token != run_token:

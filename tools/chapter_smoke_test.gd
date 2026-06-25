@@ -3,15 +3,19 @@ extends SceneTree
 const MAIN_SCENE := preload("res://scenes/Main.tscn")
 const ROOM_SCENE := preload("res://scenes/Room01.tscn")
 const ROOM_02_SCENE := preload("res://scenes/Room02.tscn")
+const CHAPTER_01_SCENE := preload("res://scenes/Chapter01Workflow.tscn")
+const EncounterTargetScript := preload("res://scripts/encounter_target.gd")
 
 var main: Node
 var room: Node
 var room2: Node
+var chapter1: Node
 
 func _init() -> void:
 	_run.call_deferred()
 
 func _run() -> void:
+	_test_workflow_evaluator()
 	await _test_main_start_screen()
 
 	room = ROOM_SCENE.instantiate()
@@ -43,6 +47,7 @@ func _run() -> void:
 
 	await _cleanup_room_01()
 	await _test_room_02()
+	await _test_chapter_01_workflow()
 
 	print("Chapter smoke test passed.")
 	await _cleanup_all()
@@ -95,6 +100,8 @@ func _fail(message: String) -> void:
 		room.queue_free()
 	if room2 != null and is_instance_valid(room2):
 		room2.queue_free()
+	if chapter1 != null and is_instance_valid(chapter1):
+		chapter1.queue_free()
 	quit(1)
 
 func _test_main_start_screen() -> void:
@@ -108,14 +115,18 @@ func _test_main_start_screen() -> void:
 	_assert_bool(not bool(main.get("awaiting_start")), "main leaves title screen after start")
 	var loaded_scene: Node = main.get("current_scene") as Node
 	_assert_bool(loaded_scene != null, "main loads a gameplay scene")
-	_assert_equal(loaded_scene.name, "Room01", "main starts with Chapter 1")
+	_assert_equal(loaded_scene.name, "Room01", "main starts with Prologue")
 	await main.call("_on_chapter_one_completed")
 	var loaded_room_02: Node = main.get("current_scene") as Node
-	_assert_bool(loaded_room_02 != null, "main loads level 2 after chapter 1")
-	_assert_equal(loaded_room_02.name, "Room02", "main transitions to Level 2")
+	_assert_bool(loaded_room_02 != null, "main loads Echo Steps after Prologue rooms")
+	_assert_equal(loaded_room_02.name, "Room02", "main transitions to Prologue Echo Steps")
 	await main.call("_on_level_two_completed")
-	_assert_bool(bool(main.get("awaiting_end_restart")), "main waits on ending after level 2")
-	_assert_bool(main.get("current_scene") == null, "main clears level 2 after ending")
+	var loaded_chapter_01: Node = main.get("current_scene") as Node
+	_assert_bool(loaded_chapter_01 != null, "main loads Chapter 1 after Prologue")
+	_assert_equal(loaded_chapter_01.name, "Chapter01Workflow", "main transitions to workflow Chapter 1")
+	await main.call("_on_workflow_chapter_completed")
+	_assert_bool(bool(main.get("awaiting_end_restart")), "main waits on ending after Chapter 1")
+	_assert_bool(main.get("current_scene") == null, "main clears Chapter 1 after ending")
 	main.queue_free()
 	await process_frame
 	await process_frame
@@ -134,6 +145,64 @@ func _test_room_02() -> void:
 	await room2.call("_finish_level")
 	await create_timer(1.0).timeout
 	_assert_bool(bool(room2.get("level_complete")), "level 2 completes")
+
+func _test_workflow_evaluator() -> void:
+	var door: EncounterTarget = _make_eval_target("fearful_door", "会害怕的门", "door", "Push", ["visual", "relation"], 70, 24, 60)
+	var ok: WorkflowResult = WorkflowEvaluator.evaluate(["See", "Compare", "Push"], door)
+	_assert_bool(ok.success, "workflow evaluator accepts confident door workflow")
+	var missing: WorkflowResult = WorkflowEvaluator.evaluate(["See", "Push"], door)
+	_assert_bool(not missing.success, "workflow evaluator rejects missing relation evidence")
+	var early: WorkflowResult = WorkflowEvaluator.evaluate(["Push", "See", "Compare"], door)
+	_assert_bool(not early.success and early.failure_reason.contains("太早"), "workflow evaluator rejects early terminal action")
+	var step: EncounterTarget = _make_eval_target("step", "不确定的台阶", "step", "Push", ["visual", "memory", "steady"], 64, 76, 48)
+	var no_hold: WorkflowResult = WorkflowEvaluator.evaluate(["Remember", "See", "Push"], step)
+	_assert_bool(not no_hold.success, "workflow evaluator rejects high-risk step workflow")
+	var hold: WorkflowResult = WorkflowEvaluator.evaluate(["Remember", "See", "Hold", "Push"], step)
+	_assert_bool(hold.success, "workflow evaluator accepts Hold risk control")
+
+func _make_eval_target(
+	target_id: String,
+	title: String,
+	kind: String,
+	action: String,
+	evidence: Array[String],
+	confidence: int,
+	base_risk: int,
+	risk_limit: int
+) -> EncounterTarget:
+	var target: EncounterTarget = EncounterTargetScript.new()
+	target.configure(target_id, title, kind, action, evidence, confidence, base_risk, risk_limit, "", "", "", Color.WHITE, Vector2.ZERO)
+	return target
+
+func _test_chapter_01_workflow() -> void:
+	chapter1 = CHAPTER_01_SCENE.instantiate()
+	root.add_child(chapter1)
+	await process_frame
+	await process_frame
+	_assert_equal(int(chapter1.get("task_index")), 0, "workflow chapter starts at task 0")
+	await _solve_workflow_task(["See", "Compare", "Push"], 0, true)
+	await _solve_workflow_task(["See", "Listen", "Quiet"], 1, true)
+	await _solve_workflow_task(["Remember", "See", "Hold", "Push"], 2, true)
+	await _solve_workflow_task(["Listen", "Remember", "Compare", "Quiet"], 3, false)
+	_assert_bool(bool(chapter1.get("chapter_complete")), "workflow Chapter 1 completes after four tasks")
+
+func _solve_workflow_task(sequence: Array[String], expected_task: int, should_advance: bool) -> void:
+	_assert_equal(int(chapter1.get("task_index")), expected_task, "workflow task index before solve")
+	_add_workflow_blocks(sequence)
+	chapter1.call("_deploy_friend", sequence)
+	await create_timer(2.4).timeout
+	_assert_bool(bool(chapter1.get("task_resolved")), "workflow task resolves after successful run")
+	await chapter1.call("_finish_task")
+	await create_timer(0.2).timeout
+	if should_advance:
+		_assert_equal(int(chapter1.get("task_index")), expected_task + 1, "workflow task advances")
+
+func _add_workflow_blocks(sequence: Array[String]) -> void:
+	var inventory: Node = chapter1.get("inventory") as Node
+	for i in range(sequence.size()):
+		var block_id: String = sequence[i]
+		if not bool(inventory.call("has_block", block_id)):
+			inventory.call("add_block", block_id)
 
 func _collect_room_02_petal(pos: Vector2) -> void:
 	var player: Node2D = room2.get("player") as Node2D
@@ -160,3 +229,8 @@ func _cleanup_all() -> void:
 		await process_frame
 		await process_frame
 		room2 = null
+	if chapter1 != null and is_instance_valid(chapter1):
+		chapter1.queue_free()
+		await process_frame
+		await process_frame
+		chapter1 = null

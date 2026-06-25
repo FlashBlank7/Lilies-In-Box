@@ -7,7 +7,8 @@ signal sequence_changed(sequence: Array[String])
 signal feedback_requested(kind: String)
 
 const PANEL_TEXTURE := preload("res://assets/ui/button_rectangle_depth_flat.png")
-const BLOCK_ORDER: Array[String] = ["See", "Push", "Remember"]
+const BLOCK_ORDER: Array[String] = ["See", "Listen", "Remember", "Compare", "Hold", "Push", "Quiet"]
+const MAX_SEQUENCE_SIZE := 5
 
 var inventory: BlockInventory
 var sequence: Array[String] = []
@@ -16,8 +17,12 @@ var inventory_slots: Array[Label] = []
 var routine_label: Label
 var hint_label: Label
 var deploy_label: Label
+var workflow_summary_label: Label
+var trace_label: Label
 var goal_text := "See -> Push"
 var room_title := "第一扇门"
+var workflow_summary := "尚未运行 workflow"
+var workflow_trace: Array[String] = []
 
 func setup(block_inventory: BlockInventory) -> void:
 	inventory = block_inventory
@@ -43,12 +48,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_1:
-			_try_add_index(0)
-		elif event.keycode == KEY_2:
-			_try_add_index(1)
-		elif event.keycode == KEY_3:
-			_try_add_index(2)
+		if event.keycode >= KEY_1 and event.keycode <= KEY_7:
+			_try_add_index(event.keycode - KEY_1)
 		elif event.keycode == KEY_BACKSPACE:
 			_remove_last()
 		elif event.is_action_pressed("deploy_friend"):
@@ -60,22 +61,32 @@ func clear_sequence() -> void:
 	sequence_changed.emit(sequence.duplicate())
 	_refresh()
 
+func clear_workflow_feedback() -> void:
+	workflow_summary = "尚未运行 workflow"
+	workflow_trace.clear()
+	_refresh()
+
 func set_goal_hint(new_room_title: String, new_goal_text: String) -> void:
 	room_title = new_room_title
 	goal_text = new_goal_text
 	_refresh()
 
+func set_workflow_feedback(summary: String, trace: Array[String]) -> void:
+	workflow_summary = summary
+	workflow_trace = trace.duplicate()
+	_refresh()
+
 func _build_ui() -> void:
 	var backplate := NinePatchRect.new()
 	backplate.texture = PANEL_TEXTURE
-	backplate.position = Vector2(26, 396)
-	backplate.size = Vector2(626, 270)
+	backplate.position = Vector2(26, 318)
+	backplate.size = Vector2(626, 348)
 	backplate.modulate = Color(0.48, 0.40, 0.74, 0.26)
 	add_child(backplate)
 
 	panel = PanelContainer.new()
-	panel.position = Vector2(34, 404)
-	panel.custom_minimum_size = Vector2(610, 254)
+	panel.position = Vector2(34, 326)
+	panel.custom_minimum_size = Vector2(610, 332)
 	panel.add_theme_stylebox_override("panel", _make_panel_style())
 	add_child(panel)
 
@@ -91,23 +102,37 @@ func _build_ui() -> void:
 	margin.add_child(box)
 
 	var title := Label.new()
-	title.text = "莉莉丝的拼装抽屉"
+	title.text = "莉莉丝的 workflow 抽屉"
 	title.add_theme_font_size_override("font_size", 23)
 	title.modulate = Color(0.94, 0.90, 1.0)
 	box.add_child(title)
 
-	var inventory_row := HBoxContainer.new()
-	inventory_row.add_theme_constant_override("separation", 10)
-	box.add_child(inventory_row)
-	for i in range(3):
+	var inventory_grid := GridContainer.new()
+	inventory_grid.columns = 4
+	inventory_grid.add_theme_constant_override("h_separation", 8)
+	inventory_grid.add_theme_constant_override("v_separation", 8)
+	box.add_child(inventory_grid)
+	for i in range(BLOCK_ORDER.size()):
 		var slot := _make_slot_label()
 		inventory_slots.append(slot)
-		inventory_row.add_child(slot)
+		inventory_grid.add_child(slot)
 
 	routine_label = Label.new()
 	routine_label.add_theme_font_size_override("font_size", 22)
 	routine_label.modulate = Color(1.0, 0.95, 0.82)
 	box.add_child(routine_label)
+
+	workflow_summary_label = Label.new()
+	workflow_summary_label.add_theme_font_size_override("font_size", 18)
+	workflow_summary_label.modulate = Color(0.82, 0.94, 1.0)
+	box.add_child(workflow_summary_label)
+
+	trace_label = Label.new()
+	trace_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	trace_label.custom_minimum_size = Vector2(540, 56)
+	trace_label.add_theme_font_size_override("font_size", 16)
+	trace_label.modulate = Color(0.74, 0.78, 0.92)
+	box.add_child(trace_label)
 
 	hint_label = Label.new()
 	hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -122,10 +147,10 @@ func _build_ui() -> void:
 
 func _make_slot_label() -> Label:
 	var label := Label.new()
-	label.custom_minimum_size = Vector2(180, 42)
+	label.custom_minimum_size = Vector2(132, 38)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 18)
+	label.add_theme_font_size_override("font_size", 16)
 	label.add_theme_stylebox_override("normal", _make_slot_style(Color(0.10, 0.10, 0.16, 0.92), Color(0.42, 0.36, 0.58, 0.90)))
 	return label
 
@@ -151,7 +176,7 @@ func _try_add_index(index: int) -> void:
 		feedback_requested.emit("error")
 		status_requested.emit("那个槽位还空着，像一枚没有醒来的名字。")
 		return
-	if sequence.size() >= 3:
+	if sequence.size() >= MAX_SEQUENCE_SIZE:
 		feedback_requested.emit("error")
 		status_requested.emit("朋友已经装得满满的了。Backspace 可以拆下最后一块。")
 		return
@@ -195,9 +220,21 @@ func _refresh() -> void:
 		else:
 			label.text = "%d  ..." % [i + 1]
 			label.modulate = Color(0.45, 0.43, 0.52)
-	routine_label.text = "Routine  " + (" -> ".join(sequence) if not sequence.is_empty() else "等待连接")
-	hint_label.text = "按 1/2/3 选择已拥有的积木，Backspace 撤回，Enter 释放。%s 需要 %s。" % [room_title, goal_text]
+	routine_label.text = "Workflow  " + (" -> ".join(sequence) if not sequence.is_empty() else "等待连接")
+	workflow_summary_label.text = workflow_summary
+	trace_label.text = _trace_text()
+	hint_label.text = "按 1-7 选择已拥有的节点，Backspace 撤回，Enter 运行。%s 想听见：%s。" % [room_title, goal_text]
 	deploy_label.text = "Enter 释放朋友" if not sequence.is_empty() else "先给朋友接上一块积木"
+
+func _trace_text() -> String:
+	if workflow_trace.is_empty():
+		return "运行后，这里会留下朋友的 trace。"
+	var visible_lines: Array[String] = []
+	var start_index: int = max(0, workflow_trace.size() - 3)
+	for i in range(start_index, workflow_trace.size()):
+		var line: String = workflow_trace[i]
+		visible_lines.append(line)
+	return "\n".join(visible_lines)
 
 func _ordered_blocks() -> Array[String]:
 	var raw: Array[String] = []

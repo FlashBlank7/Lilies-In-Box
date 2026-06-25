@@ -264,10 +264,10 @@ func _level_required_text() -> String:
 
 func _level_name() -> String:
 	if chapter_level_index == 1:
-		return "1-2 记忆的重量"
+		return "P-2 记忆的重量"
 	if chapter_level_index == 2:
-		return "1-3 回声门"
-	return "1-1 先学会看见"
+		return "P-3 回声门"
+	return "P-1 先学会看见"
 
 func _level_intro() -> String:
 	if chapter_level_index == 1:
@@ -922,7 +922,7 @@ func _show_room_banner() -> void:
 		return
 	if banner_tween != null and banner_tween.is_valid():
 		banner_tween.kill()
-	chapter_banner.text = "Chapter 1\n%s" % _level_name()
+	chapter_banner.text = "Prologue\n%s" % _level_name()
 	chapter_banner.modulate.a = 0.0
 	banner_tween = create_tween()
 	banner_tween.tween_property(chapter_banner, "modulate:a", 1.0, 0.22)
@@ -934,7 +934,7 @@ func _show_chapter_complete_banner() -> void:
 		return
 	if banner_tween != null and banner_tween.is_valid():
 		banner_tween.kill()
-	chapter_banner.text = "Chapter 1 完成\n盒子记住了莉莉丝"
+	chapter_banner.text = "Prologue 完成\n盒子记住了莉莉丝"
 	chapter_banner.modulate.a = 0.0
 	banner_tween = create_tween()
 	banner_tween.tween_property(chapter_banner, "modulate:a", 1.0, 0.36)
@@ -1007,7 +1007,7 @@ func _update_progress_label() -> void:
 	if progress_label == null or inventory == null:
 		return
 	if chapter_complete:
-		progress_label.text = "Chapter 1 完成   %s" % _inventory_text()
+		progress_label.text = "Prologue 完成   %s" % _inventory_text()
 	else:
 		progress_label.text = "门 %d/%d   %s" % [chapter_level_index + 1, CHAPTER_LEVEL_COUNT, _inventory_text()]
 
@@ -1021,7 +1021,7 @@ func _update_context_prompt() -> void:
 	if prompt_label == null:
 		return
 	if chapter_complete:
-		prompt_label.text = "Chapter 1 完成   按 R 重开"
+		prompt_label.text = "Prologue 完成   按 R 重开"
 	elif room_complete:
 		prompt_label.text = ""
 	elif builder != null and builder.visible:
