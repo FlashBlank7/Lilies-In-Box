@@ -3,6 +3,8 @@ class_name WorkflowResult
 
 var confidence := 0
 var risk := 0
+var cost := 0
+var silence := 0
 var action_intent := ""
 var success := false
 var failure_reason := ""
@@ -27,4 +29,9 @@ func summary() -> String:
 	elif risk > 45:
 		risk_text = "中"
 	var state_text := "完成" if success else "未完成"
-	return "置信度 %d%%  风险 %s  %s" % [confidence, risk_text, state_text]
+	var extra_text := ""
+	if cost > 0:
+		extra_text += "  代价 %d" % cost
+	if silence > 0:
+		extra_text += "  沉默 %d" % silence
+	return "置信度 %d%%  风险 %s%s  %s" % [confidence, risk_text, extra_text, state_text]

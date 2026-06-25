@@ -508,7 +508,7 @@ func _update_prompt() -> void:
 	elif door_open:
 		prompt_label.text = "门亮了。跳向右侧的光。"
 	else:
-		prompt_label.text = "平台很窄。轻跳，不急。"
+		prompt_label.text = "石阶很窄。轻跳，不急。"
 
 func _say(text: String) -> void:
 	if status_label:

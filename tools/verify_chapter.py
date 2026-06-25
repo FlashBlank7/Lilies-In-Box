@@ -21,6 +21,20 @@ EXPECTED_WORKFLOW_TASKS = [
     "1-4 疑问的影子",
 ]
 
+EXPECTED_LATER_TASKS = [
+    "2-1 无字积木",
+    "2-2 不肯停的铃",
+    "2-3 太亮的门",
+    "2-4 变暗的朋友",
+    "3-1 空信封",
+    "3-2 被改写的台阶",
+    "3-3 没有收件人的纸",
+    "3-4 抽屉里的回声",
+    "没有门的房间",
+]
+
+FORBIDDEN_GAME_TEXT = ["agent", "验收", "发布", "平台", "为什么被创建"]
+
 REQUIRED_ACTIONS = [
     "move_left",
     "move_right",
@@ -82,6 +96,9 @@ def check_scene_entrypoints(failures: list[str]) -> None:
     room_scene = require_file(ROOT / "scenes/Room01.tscn", failures)
     room_02_scene = require_file(ROOT / "scenes/Room02.tscn", failures)
     chapter_01_scene = require_file(ROOT / "scenes/Chapter01Workflow.tscn", failures)
+    chapter_02_scene = require_file(ROOT / "scenes/Chapter02Workflow.tscn", failures)
+    chapter_03_scene = require_file(ROOT / "scenes/Chapter03Workflow.tscn", failures)
+    finale_scene = require_file(ROOT / "scenes/FinaleWorkflow.tscn", failures)
     main_script = require_file(ROOT / "scripts/main.gd", failures)
     if "res://scripts/main.gd" not in main_scene:
         fail("Main.tscn must use scripts/main.gd", failures)
@@ -91,12 +108,24 @@ def check_scene_entrypoints(failures: list[str]) -> None:
         fail("Room02.tscn must use scripts/room02_platform.gd", failures)
     if "res://scripts/chapter01_workflow.gd" not in chapter_01_scene:
         fail("Chapter01Workflow.tscn must use scripts/chapter01_workflow.gd", failures)
+    if "res://scripts/chapter02_workflow.gd" not in chapter_02_scene:
+        fail("Chapter02Workflow.tscn must use scripts/chapter02_workflow.gd", failures)
+    if "res://scripts/chapter03_workflow.gd" not in chapter_03_scene:
+        fail("Chapter03Workflow.tscn must use scripts/chapter03_workflow.gd", failures)
+    if "res://scripts/finale_workflow.gd" not in finale_scene:
+        fail("FinaleWorkflow.tscn must use scripts/finale_workflow.gd", failures)
     if 'preload("res://scenes/Room01.tscn")' not in main_script:
         fail("main.gd must preload Room01.tscn", failures)
     if 'preload("res://scenes/Room02.tscn")' not in main_script:
         fail("main.gd must preload Room02.tscn", failures)
     if 'preload("res://scenes/Chapter01Workflow.tscn")' not in main_script:
         fail("main.gd must preload Chapter01Workflow.tscn", failures)
+    if 'preload("res://scenes/Chapter02Workflow.tscn")' not in main_script:
+        fail("main.gd must preload Chapter02Workflow.tscn", failures)
+    if 'preload("res://scenes/Chapter03Workflow.tscn")' not in main_script:
+        fail("main.gd must preload Chapter03Workflow.tscn", failures)
+    if 'preload("res://scenes/FinaleWorkflow.tscn")' not in main_script:
+        fail("main.gd must preload FinaleWorkflow.tscn", failures)
     if "func _build_start_screen(new_menu_mode: String) -> void:" not in main_script:
         fail("main.gd must build the start screen", failures)
     if "func _on_chapter_one_completed() -> void:" not in main_script:
@@ -106,6 +135,9 @@ def check_scene_entrypoints(failures: list[str]) -> None:
         'const MENU_END := "end"',
         "const STAGE_IDS: Array[String]",
         '"chapter1_4"',
+        '"chapter2_4"',
+        '"chapter3_4"',
+        '"finale"',
         "var awaiting_end_restart := false",
         "func _input(event: InputEvent) -> void:",
         "func _confirm_menu_selection() -> void:",
@@ -114,7 +146,13 @@ def check_scene_entrypoints(failures: list[str]) -> None:
         "func _load_stage(stage_id: String) -> void:",
         "func return_to_title() -> void:",
         "func _on_level_two_completed() -> void:",
+        "func _on_chapter_01_completed() -> void:",
+        "func _on_chapter_02_completed() -> void:",
+        "func _on_chapter_03_completed() -> void:",
         "func _on_workflow_chapter_completed() -> void:",
+        "func _load_chapter_02(task_index: int, blocks: Array[String]) -> void:",
+        "func _load_chapter_03(task_index: int, blocks: Array[String]) -> void:",
+        "func _load_finale(blocks: Array[String]) -> void:",
         "func _build_end_screen() -> void:",
         "func _return_to_title_to_mode(target_menu_mode: String) -> void:",
         'current_scene.connect("level_completed", Callable(self, "_on_level_two_completed"))',
@@ -144,12 +182,18 @@ def check_scripts_compile_shape(failures: list[str]) -> None:
         for match in RISKY_VARIANT_RE.finditer(text):
             line_number = text[: match.start()].count("\n") + 1
             fail(f"risky Variant inference in {rel(script)}:{line_number}", failures)
+        for forbidden in FORBIDDEN_GAME_TEXT:
+            if forbidden in text:
+                fail(f"forbidden hard concept in game script {rel(script)}: {forbidden}", failures)
 
 
 def check_chapter_contract(failures: list[str]) -> None:
     room = require_file(ROOT / "scripts/room_puzzle.gd", failures)
     room2 = require_file(ROOT / "scripts/room02_platform.gd", failures)
     chapter1 = require_file(ROOT / "scripts/chapter01_workflow.gd", failures)
+    chapter2 = require_file(ROOT / "scripts/chapter02_workflow.gd", failures)
+    chapter3 = require_file(ROOT / "scripts/chapter03_workflow.gd", failures)
+    finale = require_file(ROOT / "scripts/finale_workflow.gd", failures)
     evaluator = require_file(ROOT / "scripts/workflow_evaluator.gd", failures)
     target = require_file(ROOT / "scripts/encounter_target.gd", failures)
     result = require_file(ROOT / "scripts/workflow_result.gd", failures)
@@ -158,6 +202,7 @@ def check_chapter_contract(failures: list[str]) -> None:
     inventory = require_file(ROOT / "scripts/block_inventory.gd", failures)
     readme = require_file(ROOT / "README.md", failures)
     concept = require_file(ROOT / "docs/concept.md", failures)
+    style = require_file(ROOT / "docs/narrative_style.md", failures)
     smoke = require_file(ROOT / "tools/chapter_smoke_test.gd", failures)
 
     if "const CHAPTER_LEVEL_COUNT := 3" not in room:
@@ -243,7 +288,8 @@ def check_chapter_contract(failures: list[str]) -> None:
 
     required_builder_tokens = [
         "signal feedback_requested(kind: String)",
-        'const BLOCK_ORDER: Array[String] = ["See", "Listen", "Remember", "Compare", "Hold", "Push", "Quiet"]',
+        'const BLOCK_ORDER: Array[String] = ["See", "Listen", "Remember", "Compare", "Hold", "Wait", "Push", "Quiet", "Refuse", "Stop"]',
+        "const MAX_SEQUENCE_SIZE := 6",
         "func set_goal_hint(new_room_title: String, new_goal_text: String) -> void:",
         "func set_workflow_feedback(summary: String, trace: Array[String], next_hint_text: String = \"\") -> void:",
         "func clear_workflow_feedback() -> void:",
@@ -264,7 +310,7 @@ def check_chapter_contract(failures: list[str]) -> None:
         fail("builder still contains stale hard-coded first-room hint", failures)
     if 'func _unhandled_input(event: InputEvent) -> void:\n\tif event.is_action_pressed("toggle_builder"):' not in builder:
         fail("builder toggle handler has unexpected indentation", failures)
-    if '\n\thint_label.text = "按 1-7 选择已拥有的节点' not in builder:
+    if '\n\thint_label.text = "按 1-9/0 选择已拥有的节点' not in builder:
         fail("builder hint refresh has unexpected indentation", failures)
 
     required_friend_tokens = [
@@ -294,20 +340,28 @@ def check_chapter_contract(failures: list[str]) -> None:
         "var first_hint",
         "var failure_hint",
         "class_name WorkflowResult",
+        "var cost := 0",
+        "var silence := 0",
         "var next_hint",
         "var steps: Array[Dictionary]",
         "func add_step(block_id: String, confidence_delta: int, risk_delta: int, text: String, terminal: bool) -> void:",
         "func summary() -> String:",
         "class_name WorkflowEvaluator",
         "static func evaluate(sequence: Array[String], target: EncounterTarget) -> WorkflowResult:",
-        "TERMINAL_ACTIONS",
+        'TERMINAL_ACTIONS: Array[String] = ["Push", "Quiet", "Refuse", "Stop"]',
         "result.add_step",
+        "func _apply_wait(result: WorkflowResult, evidence: Array[String]) -> void:",
+        "代价太重",
+        "房间还太响",
         "static func _hint_for_missing(missing: Array[String]) -> String:",
         "加一个 Listen",
         "先 Compare",
         "加入 Hold",
+        "加一个 Wait",
         "缺少证据",
         "风险太高",
+        "var noise_overlay: ColorRect",
+        "func _update_noise_overlay() -> void:",
         "signal chapter_completed",
         "const CHAPTER_TASK_COUNT := 4",
         "func configure_stage(next_task_index: int, blocks: Array[String]) -> void:",
@@ -323,12 +377,15 @@ def check_chapter_contract(failures: list[str]) -> None:
         "func _animate_remember(actor: Node2D) -> void:",
         "func _animate_compare(actor: Node2D) -> void:",
         "func _animate_hold(actor: Node2D) -> void:",
+        "func _animate_wait(actor: Node2D) -> void:",
         "func _animate_push(actor: Node2D) -> void:",
         "func _animate_quiet(_actor: Node2D) -> void:",
+        "func _animate_refuse(actor: Node2D) -> void:",
+        "func _animate_stop(actor: Node2D) -> void:",
         "target_card_label.text",
         "last_result.next_hint",
     ]
-    workflow_blob = "\n".join([target, result, evaluator, chapter1])
+    workflow_blob = "\n".join([target, result, evaluator, chapter1, chapter2, chapter3, finale])
     for token in required_workflow_tokens:
         if token not in workflow_blob:
             fail(f"missing workflow feedback token: {token}", failures)
@@ -340,6 +397,27 @@ def check_chapter_contract(failures: list[str]) -> None:
             fail(f"missing workflow task in README: {title}", failures)
         if title not in concept:
             fail(f"missing workflow task in concept doc: {title}", failures)
+
+    for title in EXPECTED_LATER_TASKS:
+        if title not in workflow_blob:
+            fail(f"missing later workflow task in scripts: {title}", failures)
+        if title not in readme:
+            fail(f"missing later workflow task in README: {title}", failures)
+        if title not in concept:
+            fail(f"missing later workflow task in concept doc: {title}", failures)
+
+    required_story_tokens = [
+        "Story Bible",
+        "无字积木",
+        "未寄出的信",
+        "没有门的房间",
+        "游戏内文本禁止出现",
+        "抽屉里没有最后一张纸",
+    ]
+    story_blob = "\n".join([concept, style])
+    for token in required_story_tokens:
+        if token not in story_blob:
+            fail(f"missing story bible/style token: {token}", failures)
 
     required_room2_tokens = [
         "signal level_completed",
@@ -368,6 +446,9 @@ def check_chapter_contract(failures: list[str]) -> None:
         'const ROOM_SCENE := preload("res://scenes/Room01.tscn")',
         'const ROOM_02_SCENE := preload("res://scenes/Room02.tscn")',
         'const CHAPTER_01_SCENE := preload("res://scenes/Chapter01Workflow.tscn")',
+        'const CHAPTER_02_SCENE := preload("res://scenes/Chapter02Workflow.tscn")',
+        'const CHAPTER_03_SCENE := preload("res://scenes/Chapter03Workflow.tscn")',
+        'const FINALE_SCENE := preload("res://scenes/FinaleWorkflow.tscn")',
         "await _test_main_start_screen()",
         "await _test_stage_select_loading()",
         "_test_workflow_evaluator()",
@@ -376,6 +457,9 @@ def check_chapter_contract(failures: list[str]) -> None:
         'await main.call("start_full_run")',
         'await main.call("_on_chapter_one_completed")',
         'await main.call("_on_level_two_completed")',
+        'await main.call("_on_chapter_01_completed")',
+        'await main.call("_on_chapter_02_completed")',
+        'await main.call("_on_chapter_03_completed")',
         'await main.call("_on_workflow_chapter_completed")',
         'main waits on ending after Chapter 1',
         "func _test_stage_select_loading() -> void:",
@@ -383,13 +467,22 @@ def check_chapter_contract(failures: list[str]) -> None:
         '"prologue_p3"',
         '"echo_steps"',
         '"chapter1_4"',
+        '"chapter2_4"',
+        '"chapter3_4"',
+        '"finale"',
         "func _assert_inventory_contains(owner: Node, expected_blocks: Array[String], label: String) -> void:",
         'await main.call("start_stage", stage_id)',
         "missing.next_hint.contains",
         "early.next_hint.contains",
         "no_hold.next_hint.contains",
         "hold.steps.size()",
+        "refused.success",
+        "stopped.success",
+        "lighter.success",
         "func _test_chapter_01_workflow() -> void:",
+        "func _test_chapter_02_workflow() -> void:",
+        "func _test_chapter_03_workflow() -> void:",
+        "func _test_finale_workflow() -> void:",
         "var failing_sequence: Array[String]",
         "failed_result.next_hint.contains",
         'String(builder.get("next_hint")).contains("Compare")',
@@ -397,6 +490,15 @@ def check_chapter_contract(failures: list[str]) -> None:
         'await _solve_workflow_task(["See", "Listen", "Quiet"], 1, true)',
         'await _solve_workflow_task(["Remember", "See", "Hold", "Push"], 2, true)',
         'await _solve_workflow_task(["Listen", "Remember", "Compare", "Quiet"], 3, false)',
+        'await _solve_workflow_task(["See", "Compare", "Refuse"], 0, true)',
+        'await _solve_workflow_task(["Listen", "Wait", "Stop"], 1, true)',
+        'await _solve_workflow_task(["See", "Wait", "Push"], 2, true)',
+        'await _solve_workflow_task(["Remember", "Hold", "Wait", "Quiet"], 3, false)',
+        'await _solve_workflow_task(["Listen", "Remember", "Quiet"], 0, true)',
+        'await _solve_workflow_task(["See", "Remember", "Compare", "Push"], 1, true)',
+        'await _solve_workflow_task(["Listen", "Compare", "Refuse"], 2, true)',
+        'await _solve_workflow_task(["Remember", "Wait", "Stop"], 3, false)',
+        'await _solve_workflow_task(["See", "Remember", "Wait", "Stop"], 0, false)',
         'await _solve_level(["See", "Push"], 0, true)',
         'await _solve_level(["See", "Remember", "Push"], 1, true)',
         'await _solve_level(["Remember", "See", "Push"], 2, false)',
@@ -417,7 +519,14 @@ def check_chapter_contract(failures: list[str]) -> None:
         "P-1/P-2/P-3",
         "Prologue：回声台阶",
         "Chapter 1：寂静的概率花园",
+        "Chapter 2：无字积木",
+        "Chapter 3：未寄出的信",
+        "Finale：没有门的房间",
         "WorkflowEvaluator",
+        "docs/narrative_style.md",
+        "Wait",
+        "Refuse",
+        "Stop",
         "目标卡",
         "下一次可以试试",
         "每个节点有不同动画反馈",
@@ -442,7 +551,7 @@ def main() -> int:
         return 1
 
     print("Chapter verification passed.")
-    print("Checked: scene entrypoint, input actions, resources, scripts, Prologue, and workflow Chapter 1 contract.")
+    print("Checked: scenes, input actions, resources, scripts, story docs, Prologue, Chapter 1-3, and Finale contracts.")
     return 0
 
 

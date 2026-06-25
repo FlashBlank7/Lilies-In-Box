@@ -7,8 +7,8 @@ signal sequence_changed(sequence: Array[String])
 signal feedback_requested(kind: String)
 
 const PANEL_TEXTURE := preload("res://assets/ui/button_rectangle_depth_flat.png")
-const BLOCK_ORDER: Array[String] = ["See", "Listen", "Remember", "Compare", "Hold", "Push", "Quiet"]
-const MAX_SEQUENCE_SIZE := 5
+const BLOCK_ORDER: Array[String] = ["See", "Listen", "Remember", "Compare", "Hold", "Wait", "Push", "Quiet", "Refuse", "Stop"]
+const MAX_SEQUENCE_SIZE := 6
 
 var inventory: BlockInventory
 var sequence: Array[String] = []
@@ -50,8 +50,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode >= KEY_1 and event.keycode <= KEY_7:
+		if event.keycode >= KEY_1 and event.keycode <= KEY_9:
 			_try_add_index(event.keycode - KEY_1)
+		elif event.keycode == KEY_0:
+			_try_add_index(9)
 		elif event.keycode == KEY_BACKSPACE:
 			_remove_last()
 		elif event.is_action_pressed("deploy_friend"):
@@ -226,17 +228,18 @@ func _refresh() -> void:
 	var blocks: Array[String] = _ordered_blocks()
 	for i in range(inventory_slots.size()):
 		var label: Label = inventory_slots[i]
+		var key_text := "0" if i == 9 else str(i + 1)
 		if i < blocks.size():
-			label.text = "%d  %s" % [i + 1, blocks[i]]
+			label.text = "%s  %s" % [key_text, blocks[i]]
 			label.modulate = Color(0.96, 0.94, 1.0)
 		else:
-			label.text = "%d  ..." % [i + 1]
+			label.text = "%s  ..." % key_text
 			label.modulate = Color(0.45, 0.43, 0.52)
 	routine_label.text = "Workflow  " + (" -> ".join(sequence) if not sequence.is_empty() else "等待连接")
 	workflow_summary_label.text = workflow_summary
 	trace_label.text = _trace_text()
 	next_hint_label.text = "下一次可以试试：%s" % next_hint
-	hint_label.text = "按 1-7 选择已拥有的节点，Backspace 撤回，Enter 运行。%s 想听见：%s。" % [room_title, goal_text]
+	hint_label.text = "按 1-9/0 选择已拥有的节点，Backspace 撤回，Enter 运行。%s 想听见：%s。" % [room_title, goal_text]
 	deploy_label.text = "Enter 释放朋友" if not sequence.is_empty() else "先给朋友接上一块积木"
 
 func _trace_text() -> String:

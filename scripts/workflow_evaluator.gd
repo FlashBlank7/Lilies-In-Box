@@ -1,7 +1,7 @@
 extends RefCounted
 class_name WorkflowEvaluator
 
-const TERMINAL_ACTIONS: Array[String] = ["Push", "Quiet"]
+const TERMINAL_ACTIONS: Array[String] = ["Push", "Quiet", "Refuse", "Stop"]
 
 static func evaluate(sequence: Array[String], target: EncounterTarget) -> WorkflowResult:
 	var result: WorkflowResult = WorkflowResult.new()
@@ -27,11 +27,14 @@ static func evaluate(sequence: Array[String], target: EncounterTarget) -> Workfl
 			_apply_compare(result, evidence)
 		elif block_id == "Hold":
 			_apply_hold(result, evidence)
+		elif block_id == "Wait":
+			_apply_wait(result, evidence)
 		elif TERMINAL_ACTIONS.has(block_id):
 			if terminal_index >= 0:
 				var duplicate_text := "%s：朋友已经发出过一个终端动作，新的动作只让它更困惑。" % block_id
 				result.add_step(block_id, 0, 12, duplicate_text, true)
 				result.risk += 12
+				result.cost += 10
 			else:
 				terminal_index = i
 				result.action_intent = block_id
@@ -43,6 +46,8 @@ static func evaluate(sequence: Array[String], target: EncounterTarget) -> Workfl
 
 	result.confidence = clampi(result.confidence, 0, 100)
 	result.risk = clampi(result.risk, 0, 100)
+	result.cost = clampi(result.cost, 0, 100)
+	result.silence = clampi(result.silence, 0, 100)
 	_finalize_result(result, target, evidence, terminal_index, sequence.size())
 	return result
 
@@ -89,7 +94,26 @@ static func _apply_hold(result: WorkflowResult, evidence: Array[String]) -> void
 	result.risk -= 38
 	result.add_step("Hold", 10, -38, "Hold：朋友先稳住自己，置信度 +10%，风险 -38。", false)
 
+static func _apply_wait(result: WorkflowResult, evidence: Array[String]) -> void:
+	_add_evidence(evidence, "waiting")
+	_add_evidence(evidence, "silence")
+	result.confidence += 12
+	result.risk -= 16
+	result.cost -= 16
+	result.silence += 28
+	result.add_step("Wait", 12, -16, "Wait：朋友没有立刻伸手，房间安静了一点，置信度 +12%，风险 -16。", false)
+
 static func _apply_terminal(result: WorkflowResult, target: EncounterTarget, block_id: String) -> void:
+	if block_id == "Push":
+		result.cost += 22
+	elif block_id == "Quiet":
+		result.cost += 6
+	elif block_id == "Refuse":
+		result.cost -= 18
+		result.silence += 12
+	elif block_id == "Stop":
+		result.cost -= 10
+		result.silence += 22
 	if block_id == target.required_action:
 		result.add_step(block_id, 0, 0, "%s：朋友准备执行终端动作，当前置信度 %d%%。" % [block_id, result.confidence], true)
 	else:
@@ -120,6 +144,12 @@ static func _finalize_result(result: WorkflowResult, target: EncounterTarget, ev
 	elif result.risk > target.risk_limit:
 		result.failure_reason = "风险太高。朋友退回来了，避免把莉莉丝带进更深的噪声。"
 		result.next_hint = "加入 Hold，让朋友先稳住自己。"
+	elif result.cost > target.cost_limit:
+		result.failure_reason = "代价太重。朋友的光暗了一下，又慢慢退回来。"
+		result.next_hint = "加一个 Wait，或者换成更轻的终端动作。"
+	elif result.silence < target.silence_required:
+		result.failure_reason = "房间还太响。朋友听不见那块空白。"
+		result.next_hint = "先 Wait，让沉默多留一会儿。"
 	else:
 		result.success = true
 		result.next_hint = "任务完成了。走向右侧的门。"
@@ -140,6 +170,8 @@ static func _hint_for_missing(missing: Array[String]) -> String:
 		return "先 Compare，再使用终端动作。"
 	if missing.has("steady"):
 		return "加入 Hold，让朋友先稳住自己。"
+	if missing.has("waiting") or missing.has("silence"):
+		return "加一个 Wait，让房间先安静下来。"
 	if missing.has("memory"):
 		return "加一个 Remember，让朋友抱住刚才的事实。"
 	if missing.has("visual"):

@@ -3,6 +3,9 @@ extends Node2D
 const ROOM_01_SCENE := preload("res://scenes/Room01.tscn")
 const ROOM_02_SCENE := preload("res://scenes/Room02.tscn")
 const CHAPTER_01_SCENE := preload("res://scenes/Chapter01Workflow.tscn")
+const CHAPTER_02_SCENE := preload("res://scenes/Chapter02Workflow.tscn")
+const CHAPTER_03_SCENE := preload("res://scenes/Chapter03Workflow.tscn")
+const FINALE_SCENE := preload("res://scenes/FinaleWorkflow.tscn")
 const BG_TEXTURE := preload("res://assets/environment/gothicvania/backgrounds.png")
 
 const MENU_MAIN := "main"
@@ -20,6 +23,15 @@ const STAGE_IDS: Array[String] = [
 	"chapter1_2",
 	"chapter1_3",
 	"chapter1_4",
+	"chapter2_1",
+	"chapter2_2",
+	"chapter2_3",
+	"chapter2_4",
+	"chapter3_1",
+	"chapter3_2",
+	"chapter3_3",
+	"chapter3_4",
+	"finale",
 ]
 const STAGE_NAMES: Array[String] = [
 	"P-1 先学会看见",
@@ -30,7 +42,20 @@ const STAGE_NAMES: Array[String] = [
 	"1-2 低声花",
 	"1-3 不确定的台阶",
 	"1-4 疑问的影子",
+	"2-1 无字积木",
+	"2-2 不肯停的铃",
+	"2-3 太亮的门",
+	"2-4 变暗的朋友",
+	"3-1 空信封",
+	"3-2 被改写的台阶",
+	"3-3 没有收件人的纸",
+	"3-4 抽屉里的回声",
+	"Finale 没有门的房间",
 ]
+
+const CHAPTER_01_BLOCKS: Array[String] = ["See", "Compare", "Push", "Listen", "Quiet", "Remember", "Hold"]
+const CHAPTER_02_BLOCKS: Array[String] = ["See", "Compare", "Push", "Listen", "Quiet", "Remember", "Hold", "Wait", "Refuse", "Stop"]
+const CHAPTER_03_BLOCKS: Array[String] = ["See", "Compare", "Push", "Listen", "Quiet", "Remember", "Hold", "Wait", "Refuse", "Stop"]
 
 var current_scene: Node
 var start_layer: CanvasLayer
@@ -233,6 +258,16 @@ func _refresh_menu_labels() -> void:
 			label.visible = false
 			continue
 		label.visible = true
+		if menu_mode == MENU_SELECT:
+			var row: int = i % 9
+			var column: int = int(i / 9)
+			label.position = Vector2(176 + column * 520, 306 + row * 34)
+			label.size = Vector2(440, 30)
+			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		else:
+			label.position = Vector2(0, 310 + i * 38)
+			label.size = Vector2(1280, 34)
+			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.text = (">  %s  <" % items[i]) if i == selected_index else items[i]
 		label.modulate = Color(0.92, 0.94, 1.0) if i == selected_index else Color(0.62, 0.64, 0.78)
 
@@ -276,6 +311,24 @@ func _load_stage(stage_id: String) -> void:
 		_load_chapter_01(2, ["See", "Compare", "Push", "Listen", "Quiet"])
 	elif stage_id == "chapter1_4":
 		_load_chapter_01(3, ["See", "Compare", "Push", "Listen", "Quiet", "Remember", "Hold"])
+	elif stage_id == "chapter2_1":
+		_load_chapter_02(0, CHAPTER_01_BLOCKS)
+	elif stage_id == "chapter2_2":
+		_load_chapter_02(1, CHAPTER_02_BLOCKS)
+	elif stage_id == "chapter2_3":
+		_load_chapter_02(2, CHAPTER_02_BLOCKS)
+	elif stage_id == "chapter2_4":
+		_load_chapter_02(3, CHAPTER_02_BLOCKS)
+	elif stage_id == "chapter3_1":
+		_load_chapter_03(0, CHAPTER_02_BLOCKS)
+	elif stage_id == "chapter3_2":
+		_load_chapter_03(1, CHAPTER_03_BLOCKS)
+	elif stage_id == "chapter3_3":
+		_load_chapter_03(2, CHAPTER_03_BLOCKS)
+	elif stage_id == "chapter3_4":
+		_load_chapter_03(3, CHAPTER_03_BLOCKS)
+	elif stage_id == "finale":
+		_load_finale(CHAPTER_03_BLOCKS)
 	else:
 		_load_room_01(0, [])
 
@@ -302,6 +355,33 @@ func _load_chapter_01(task_index: int, blocks: Array[String]) -> void:
 		current_scene.call("configure_stage", task_index, blocks)
 	add_child(current_scene)
 	if current_scene.has_signal("chapter_completed"):
+		current_scene.connect("chapter_completed", Callable(self, "_on_chapter_01_completed"))
+
+func _load_chapter_02(task_index: int, blocks: Array[String]) -> void:
+	_clear_current_scene()
+	current_scene = CHAPTER_02_SCENE.instantiate()
+	if current_scene.has_method("configure_stage"):
+		current_scene.call("configure_stage", task_index, blocks)
+	add_child(current_scene)
+	if current_scene.has_signal("chapter_completed"):
+		current_scene.connect("chapter_completed", Callable(self, "_on_chapter_02_completed"))
+
+func _load_chapter_03(task_index: int, blocks: Array[String]) -> void:
+	_clear_current_scene()
+	current_scene = CHAPTER_03_SCENE.instantiate()
+	if current_scene.has_method("configure_stage"):
+		current_scene.call("configure_stage", task_index, blocks)
+	add_child(current_scene)
+	if current_scene.has_signal("chapter_completed"):
+		current_scene.connect("chapter_completed", Callable(self, "_on_chapter_03_completed"))
+
+func _load_finale(blocks: Array[String]) -> void:
+	_clear_current_scene()
+	current_scene = FINALE_SCENE.instantiate()
+	if current_scene.has_method("configure_stage"):
+		current_scene.call("configure_stage", 0, blocks)
+	add_child(current_scene)
+	if current_scene.has_signal("chapter_completed"):
 		current_scene.connect("chapter_completed", Callable(self, "_on_workflow_chapter_completed"))
 
 func _on_chapter_one_completed() -> void:
@@ -321,6 +401,36 @@ func _on_level_two_completed() -> void:
 	await get_tree().create_timer(1.2).timeout
 	await _fade_to(0.94, 0.52)
 	_load_chapter_01(0, [])
+	await _fade_from(0.60)
+	transitioning = false
+
+func _on_chapter_01_completed() -> void:
+	if transitioning:
+		return
+	transitioning = true
+	await get_tree().create_timer(1.2).timeout
+	await _fade_to(0.94, 0.52)
+	_load_chapter_02(0, CHAPTER_01_BLOCKS)
+	await _fade_from(0.60)
+	transitioning = false
+
+func _on_chapter_02_completed() -> void:
+	if transitioning:
+		return
+	transitioning = true
+	await get_tree().create_timer(1.2).timeout
+	await _fade_to(0.94, 0.52)
+	_load_chapter_03(0, CHAPTER_02_BLOCKS)
+	await _fade_from(0.60)
+	transitioning = false
+
+func _on_chapter_03_completed() -> void:
+	if transitioning:
+		return
+	transitioning = true
+	await get_tree().create_timer(1.2).timeout
+	await _fade_to(0.94, 0.52)
+	_load_finale(CHAPTER_03_BLOCKS)
 	await _fade_from(0.60)
 	transitioning = false
 

@@ -4,6 +4,9 @@ const MAIN_SCENE := preload("res://scenes/Main.tscn")
 const ROOM_SCENE := preload("res://scenes/Room01.tscn")
 const ROOM_02_SCENE := preload("res://scenes/Room02.tscn")
 const CHAPTER_01_SCENE := preload("res://scenes/Chapter01Workflow.tscn")
+const CHAPTER_02_SCENE := preload("res://scenes/Chapter02Workflow.tscn")
+const CHAPTER_03_SCENE := preload("res://scenes/Chapter03Workflow.tscn")
+const FINALE_SCENE := preload("res://scenes/FinaleWorkflow.tscn")
 const EncounterTargetScript := preload("res://scripts/encounter_target.gd")
 
 var main: Node
@@ -49,6 +52,9 @@ func _run() -> void:
 	await _cleanup_room_01()
 	await _test_room_02()
 	await _test_chapter_01_workflow()
+	await _test_chapter_02_workflow()
+	await _test_chapter_03_workflow()
+	await _test_finale_workflow()
 
 	print("Chapter smoke test passed.")
 	await _cleanup_all()
@@ -125,6 +131,18 @@ func _test_main_start_screen() -> void:
 	var loaded_chapter_01: Node = main.get("current_scene") as Node
 	_assert_bool(loaded_chapter_01 != null, "main loads Chapter 1 after Prologue")
 	_assert_equal(loaded_chapter_01.name, "Chapter01Workflow", "main transitions to workflow Chapter 1")
+	await main.call("_on_chapter_01_completed")
+	var loaded_chapter_02: Node = main.get("current_scene") as Node
+	_assert_bool(loaded_chapter_02 != null, "main loads Chapter 2 after Chapter 1")
+	_assert_equal(loaded_chapter_02.name, "Chapter02Workflow", "main transitions to wordless block Chapter 2")
+	await main.call("_on_chapter_02_completed")
+	var loaded_chapter_03: Node = main.get("current_scene") as Node
+	_assert_bool(loaded_chapter_03 != null, "main loads Chapter 3 after Chapter 2")
+	_assert_equal(loaded_chapter_03.name, "Chapter03Workflow", "main transitions to unsent letters Chapter 3")
+	await main.call("_on_chapter_03_completed")
+	var loaded_finale: Node = main.get("current_scene") as Node
+	_assert_bool(loaded_finale != null, "main loads Finale after Chapter 3")
+	_assert_equal(loaded_finale.name, "FinaleWorkflow", "main transitions to Finale")
 	await main.call("_on_workflow_chapter_completed")
 	_assert_bool(bool(main.get("awaiting_end_restart")), "main waits on ending after Chapter 1")
 	_assert_bool(main.get("current_scene") == null, "main clears Chapter 1 after ending")
@@ -147,6 +165,9 @@ func _test_stage_select_loading() -> void:
 	await _assert_stage_loads("prologue_p3", "Room01", 2, ["See", "Push", "Remember"])
 	await _assert_stage_loads("echo_steps", "Room02", -1, [])
 	await _assert_stage_loads("chapter1_4", "Chapter01Workflow", 3, ["See", "Compare", "Push", "Listen", "Quiet", "Remember", "Hold"])
+	await _assert_stage_loads("chapter2_4", "Chapter02Workflow", 3, ["See", "Compare", "Push", "Listen", "Quiet", "Remember", "Hold", "Wait", "Refuse", "Stop"])
+	await _assert_stage_loads("chapter3_4", "Chapter03Workflow", 3, ["See", "Compare", "Push", "Listen", "Quiet", "Remember", "Hold", "Wait", "Refuse", "Stop"])
+	await _assert_stage_loads("finale", "FinaleWorkflow", 0, ["See", "Compare", "Push", "Listen", "Quiet", "Remember", "Hold", "Wait", "Refuse", "Stop"])
 
 func _assert_stage_loads(stage_id: String, expected_scene_name: String, expected_index: int, expected_blocks: Array[String]) -> void:
 	main = MAIN_SCENE.instantiate()
@@ -161,7 +182,7 @@ func _assert_stage_loads(stage_id: String, expected_scene_name: String, expected
 	if expected_scene_name == "Room01":
 		_assert_equal(int(loaded_scene.get("chapter_level_index")), expected_index, "prologue selected room index")
 		_assert_inventory_contains(loaded_scene, expected_blocks, "prologue selected inventory")
-	elif expected_scene_name == "Chapter01Workflow":
+	elif expected_scene_name == "Chapter01Workflow" or expected_scene_name == "Chapter02Workflow" or expected_scene_name == "Chapter03Workflow" or expected_scene_name == "FinaleWorkflow":
 		_assert_equal(int(loaded_scene.get("task_index")), expected_index, "workflow selected task index")
 		_assert_inventory_contains(loaded_scene, expected_blocks, "workflow selected inventory")
 	main.queue_free()
@@ -206,6 +227,20 @@ func _test_workflow_evaluator() -> void:
 	var hold: WorkflowResult = WorkflowEvaluator.evaluate(["Remember", "See", "Hold", "Push"], step)
 	_assert_bool(hold.success, "workflow evaluator accepts Hold risk control")
 	_assert_equal(hold.steps.size(), 4, "workflow result records one step per node")
+	var blank: EncounterTarget = _make_eval_target("blank", "无字积木", "blank", "Refuse", ["visual", "relation"], 58, 28, 62)
+	blank.cost_limit = 16
+	var refused: WorkflowResult = WorkflowEvaluator.evaluate(["See", "Compare", "Refuse"], blank)
+	_assert_bool(refused.success, "workflow evaluator accepts Refuse terminal action")
+	var bell: EncounterTarget = _make_eval_target("bell", "不肯停的铃", "bell", "Stop", ["audio", "waiting"], 44, 46, 56)
+	bell.silence_required = 24
+	var stopped: WorkflowResult = WorkflowEvaluator.evaluate(["Listen", "Wait", "Stop"], bell)
+	_assert_bool(stopped.success, "workflow evaluator accepts Wait and Stop")
+	var bright: EncounterTarget = _make_eval_target("bright", "太亮的门", "door", "Push", ["visual", "waiting"], 42, 34, 60)
+	bright.cost_limit = 12
+	var costly: WorkflowResult = WorkflowEvaluator.evaluate(["See", "Push"], bright)
+	_assert_bool(not costly.success and costly.failure_reason.contains("缺少证据"), "workflow evaluator asks for waiting before costly push")
+	var lighter: WorkflowResult = WorkflowEvaluator.evaluate(["See", "Wait", "Push"], bright)
+	_assert_bool(lighter.success, "workflow evaluator lets Wait reduce action cost")
 
 func _make_eval_target(
 	target_id: String,
@@ -241,13 +276,64 @@ func _test_chapter_01_workflow() -> void:
 	await _solve_workflow_task(["Remember", "See", "Hold", "Push"], 2, true)
 	await _solve_workflow_task(["Listen", "Remember", "Compare", "Quiet"], 3, false)
 	_assert_bool(bool(chapter1.get("chapter_complete")), "workflow Chapter 1 completes after four tasks")
+	chapter1.queue_free()
+	await process_frame
+	await process_frame
+	chapter1 = null
+
+func _test_chapter_02_workflow() -> void:
+	chapter1 = CHAPTER_02_SCENE.instantiate()
+	root.add_child(chapter1)
+	await process_frame
+	await process_frame
+	_assert_equal(int(chapter1.get("task_index")), 0, "Chapter 2 starts at task 0")
+	await _solve_workflow_task(["See", "Compare", "Refuse"], 0, true)
+	await _solve_workflow_task(["Listen", "Wait", "Stop"], 1, true)
+	await _solve_workflow_task(["See", "Wait", "Push"], 2, true)
+	await _solve_workflow_task(["Remember", "Hold", "Wait", "Quiet"], 3, false)
+	_assert_bool(bool(chapter1.get("chapter_complete")), "Chapter 2 completes after four tasks")
+	chapter1.queue_free()
+	await process_frame
+	await process_frame
+	chapter1 = null
+
+func _test_chapter_03_workflow() -> void:
+	chapter1 = CHAPTER_03_SCENE.instantiate()
+	root.add_child(chapter1)
+	await process_frame
+	await process_frame
+	_assert_equal(int(chapter1.get("task_index")), 0, "Chapter 3 starts at task 0")
+	await _solve_workflow_task(["Listen", "Remember", "Quiet"], 0, true)
+	await _solve_workflow_task(["See", "Remember", "Compare", "Push"], 1, true)
+	await _solve_workflow_task(["Listen", "Compare", "Refuse"], 2, true)
+	await _solve_workflow_task(["Remember", "Wait", "Stop"], 3, false)
+	_assert_bool(bool(chapter1.get("chapter_complete")), "Chapter 3 completes after four tasks")
+	chapter1.queue_free()
+	await process_frame
+	await process_frame
+	chapter1 = null
+
+func _test_finale_workflow() -> void:
+	chapter1 = FINALE_SCENE.instantiate()
+	root.add_child(chapter1)
+	await process_frame
+	await process_frame
+	_assert_equal(int(chapter1.get("task_index")), 0, "Finale starts at task 0")
+	await _solve_workflow_task(["See", "Remember", "Wait", "Stop"], 0, false)
+	_assert_bool(bool(chapter1.get("chapter_complete")), "Finale completes after name workflow")
+	chapter1.queue_free()
+	await process_frame
+	await process_frame
+	chapter1 = null
 
 func _solve_workflow_task(sequence: Array[String], expected_task: int, should_advance: bool) -> void:
-	_assert_equal(int(chapter1.get("task_index")), expected_task, "workflow task index before solve")
+	var scene_name: String = chapter1.name if chapter1 != null else "unknown"
+	var sequence_text: String = " -> ".join(sequence)
+	_assert_equal(int(chapter1.get("task_index")), expected_task, "%s task index before solve %s" % [scene_name, sequence_text])
 	_add_workflow_blocks(sequence)
 	chapter1.call("_deploy_friend", sequence)
 	await create_timer(2.4).timeout
-	_assert_bool(bool(chapter1.get("task_resolved")), "workflow task resolves after successful run")
+	_assert_bool(bool(chapter1.get("task_resolved")), "%s resolves %s" % [scene_name, sequence_text])
 	await chapter1.call("_finish_task")
 	await create_timer(0.2).timeout
 	if should_advance:

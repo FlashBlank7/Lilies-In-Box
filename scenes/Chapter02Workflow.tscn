@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://lilies_chapter_02_workflow"]
+
+[ext_resource type="Script" path="res://scripts/chapter02_workflow.gd" id="1_chapter02"]
+
+[node name="Chapter02Workflow" type="Node2D"]
+script = ExtResource("1_chapter02")

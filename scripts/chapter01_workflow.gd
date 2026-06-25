@@ -34,6 +34,7 @@ var target_label: Label
 var confidence_label: Label
 var target_card_label: Label
 var fade_rect: ColorRect
+var noise_overlay: ColorRect
 var chapter_banner: Label
 var target_node: Node2D
 var target_glow: ColorRect
@@ -58,16 +59,41 @@ var last_result: WorkflowResult
 var initial_task_index := 0
 var initial_blocks: Array[String] = []
 var intro_tip_shown := false
+var noise_pressure := 0
 
 func configure_stage(next_task_index: int, blocks: Array[String]) -> void:
-	initial_task_index = clampi(next_task_index, 0, CHAPTER_TASK_COUNT - 1)
+	initial_task_index = max(0, next_task_index)
 	initial_blocks = blocks.duplicate()
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_build_targets()
 	_build_world()
+	initial_task_index = clampi(initial_task_index, 0, _task_count() - 1)
 	_load_task(initial_task_index)
+
+func _task_count() -> int:
+	if targets.is_empty():
+		return CHAPTER_TASK_COUNT
+	return targets.size()
+
+func _chapter_heading() -> String:
+	return "Chapter 1"
+
+func _chapter_objective_text() -> String:
+	return "目标：搭建 workflow，运行后根据 trace 调整。"
+
+func _inventory_goal_text() -> String:
+	return "运行 workflow，读 trace，再调整节点"
+
+func _chapter_tip_text() -> String:
+	return "运行不是答案，trace 才是答案的影子。\n失败后读 trace，再改 workflow。"
+
+func _chapter_completion_text() -> String:
+	return "寂静的概率花园安静下来。莉莉丝学会了读 workflow 留下的原因。"
+
+func _chapter_complete_banner_text() -> String:
+	return "Chapter 1 完成\n寂静的概率花园"
 
 func _process(_delta: float) -> void:
 	_animate_pickups()
@@ -186,6 +212,10 @@ func _evidence_text(evidence: Array[String]) -> String:
 			names.append("关系比较")
 		elif evidence_id == "steady":
 			names.append("稳定风险")
+		elif evidence_id == "waiting":
+			names.append("等待")
+		elif evidence_id == "silence":
+			names.append("沉默")
 		else:
 			names.append(evidence_id)
 	return " + ".join(names)
@@ -193,6 +223,10 @@ func _evidence_text(evidence: Array[String]) -> String:
 func _action_text(action: String) -> String:
 	if action == "Quiet":
 		return "Quiet：把噪声收回来"
+	if action == "Refuse":
+		return "Refuse：把手收回"
+	if action == "Stop":
+		return "Stop：停在原地"
 	return "Push：轻轻推动世界"
 
 func _build_world() -> void:
@@ -464,6 +498,13 @@ func _add_ui() -> void:
 	fade_rect.z_index = 30
 	hud.add_child(fade_rect)
 
+	noise_overlay = ColorRect.new()
+	noise_overlay.color = Color(0.52, 0.58, 0.86, 1.0)
+	noise_overlay.size = Vector2(1280, 720)
+	noise_overlay.modulate.a = 0.0
+	noise_overlay.z_index = 29
+	hud.add_child(noise_overlay)
+
 	chapter_banner = Label.new()
 	chapter_banner.position = Vector2(0, 252)
 	chapter_banner.size = Vector2(1280, 130)
@@ -490,7 +531,7 @@ func _make_panel_style(bg: Color, border: Color, radius: int) -> StyleBoxFlat:
 	return style
 
 func _load_task(next_index: int) -> void:
-	task_index = next_index
+	task_index = clampi(next_index, 0, _task_count() - 1)
 	task_resolved = false
 	transition_in_progress = false
 	active_pickup = null
@@ -517,7 +558,7 @@ func _load_task(next_index: int) -> void:
 	_add_pickups_for_task()
 	_add_task_door()
 	_add_guidance_note(target)
-	builder.set_goal_hint(target.title, "运行 workflow，读 trace，再调整节点")
+	builder.set_goal_hint(target.title, _inventory_goal_text())
 	_say(target.intro_text)
 	_show_room_banner(target.title)
 	if not intro_tip_shown:
@@ -526,7 +567,7 @@ func _load_task(next_index: int) -> void:
 	_update_guidance()
 
 func _current_target() -> EncounterTarget:
-	return targets[task_index]
+	return targets[clampi(task_index, 0, _task_count() - 1)]
 
 func _add_guidance_note(target: EncounterTarget) -> void:
 	var note := PanelContainer.new()
@@ -550,7 +591,7 @@ func _add_guidance_note(target: EncounterTarget) -> void:
 
 func _show_chapter_tip() -> void:
 	var tip := Label.new()
-	tip.text = "运行不是答案，trace 才是答案的影子。\n失败后读 trace，再改 workflow。"
+	tip.text = _chapter_tip_text()
 	tip.position = Vector2(0, 292)
 	tip.size = Vector2(1280, 82)
 	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -584,6 +625,14 @@ func _add_task_target(target: EncounterTarget) -> void:
 		_add_step_target(target_node, target.color)
 	elif target.kind == "shadow":
 		_add_shadow_target(target_node, target.color)
+	elif target.kind == "blank":
+		_add_blank_target(target_node, target.color)
+	elif target.kind == "bell":
+		_add_bell_target(target_node, target.color)
+	elif target.kind == "letter":
+		_add_letter_target(target_node, target.color)
+	elif target.kind == "name":
+		_add_name_target(target_node, target.color)
 	else:
 		_add_door_target(target_node, target.color)
 
@@ -649,6 +698,59 @@ func _add_shadow_target(parent: Node2D, color: Color) -> void:
 	eye.position = Vector2(-9, -42)
 	eye.size = Vector2(18, 6)
 	parent.add_child(eye)
+
+func _add_blank_target(parent: Node2D, color: Color) -> void:
+	var block := ColorRect.new()
+	block.color = Color(color.r, color.g, color.b, 0.64)
+	block.position = Vector2(-36, -52)
+	block.size = Vector2(72, 72)
+	parent.add_child(block)
+	var hollow := ColorRect.new()
+	hollow.color = Color(0.02, 0.022, 0.036, 0.82)
+	hollow.position = Vector2(-19, -35)
+	hollow.size = Vector2(38, 38)
+	parent.add_child(hollow)
+
+func _add_bell_target(parent: Node2D, color: Color) -> void:
+	var bell := Polygon2D.new()
+	bell.polygon = PackedVector2Array([
+		Vector2(0, -76),
+		Vector2(38, -22),
+		Vector2(26, 18),
+		Vector2(-26, 18),
+		Vector2(-38, -22),
+	])
+	bell.color = Color(color.r, color.g, color.b, 0.62)
+	parent.add_child(bell)
+	var clapper := ColorRect.new()
+	clapper.color = Color(0.96, 0.92, 1.0, 0.78)
+	clapper.position = Vector2(-8, 12)
+	clapper.size = Vector2(16, 16)
+	parent.add_child(clapper)
+
+func _add_letter_target(parent: Node2D, color: Color) -> void:
+	var paper := ColorRect.new()
+	paper.color = Color(color.r, color.g, color.b, 0.58)
+	paper.position = Vector2(-50, -64)
+	paper.size = Vector2(100, 72)
+	parent.add_child(paper)
+	var fold := Line2D.new()
+	fold.width = 2.0
+	fold.default_color = Color(0.96, 0.94, 1.0, 0.54)
+	fold.points = PackedVector2Array([Vector2(-48, -62), Vector2(0, -20), Vector2(48, -62)])
+	parent.add_child(fold)
+
+func _add_name_target(parent: Node2D, color: Color) -> void:
+	var slate := ColorRect.new()
+	slate.color = Color(color.r, color.g, color.b, 0.50)
+	slate.position = Vector2(-70, -58)
+	slate.size = Vector2(140, 52)
+	parent.add_child(slate)
+	var mark := ColorRect.new()
+	mark.color = Color(1.0, 0.96, 1.0, 0.78)
+	mark.position = Vector2(-38, -34)
+	mark.size = Vector2(76, 8)
+	parent.add_child(mark)
 
 func _add_task_door() -> void:
 	door = Node2D.new()
@@ -727,8 +829,14 @@ func _block_color(block_id: String) -> Color:
 		return Color(0.84, 0.84, 0.98)
 	if block_id == "Hold":
 		return Color(0.64, 0.90, 0.84)
+	if block_id == "Wait":
+		return Color(0.74, 0.82, 0.92)
 	if block_id == "Quiet":
 		return Color(0.90, 0.76, 1.0)
+	if block_id == "Refuse":
+		return Color(0.96, 0.74, 0.82)
+	if block_id == "Stop":
+		return Color(0.86, 0.86, 0.94)
 	return Color(1.0, 0.58, 0.73)
 
 func _try_pickup() -> void:
@@ -810,11 +918,22 @@ func run_friend_workflow(actor: Node2D, sequence: Array[String]) -> bool:
 		await get_tree().create_timer(0.20).timeout
 
 	if result.success:
+		noise_pressure = maxi(0, noise_pressure - 16)
+		_update_noise_overlay()
 		await _resolve_target(target)
 	else:
+		noise_pressure = mini(100, noise_pressure + 14)
+		_update_noise_overlay()
 		_play_feedback("error")
 		_spawn_flash(target.position, Color(0.95, 0.40, 0.72, 0.28))
 	return result.success
+
+func _update_noise_overlay() -> void:
+	if noise_overlay == null:
+		return
+	var target_alpha := float(noise_pressure) / 100.0 * 0.18
+	var tween := create_tween()
+	tween.tween_property(noise_overlay, "modulate:a", target_alpha, 0.24)
 
 func _play_workflow_step(actor: Node2D, step: Dictionary) -> void:
 	var block_id: String = String(step["block_id"])
@@ -830,10 +949,16 @@ func _play_workflow_step(actor: Node2D, step: Dictionary) -> void:
 		await _animate_compare(actor)
 	elif block_id == "Hold":
 		await _animate_hold(actor)
+	elif block_id == "Wait":
+		await _animate_wait(actor)
 	elif block_id == "Push":
 		await _animate_push(actor)
 	elif block_id == "Quiet":
 		await _animate_quiet(actor)
+	elif block_id == "Refuse":
+		await _animate_refuse(actor)
+	elif block_id == "Stop":
+		await _animate_stop(actor)
 	else:
 		_spawn_flash(actor.global_position, Color(0.85, 0.72, 1.0, 0.24))
 		await get_tree().create_timer(0.22).timeout
@@ -905,6 +1030,20 @@ func _animate_hold(actor: Node2D) -> void:
 	await tween.finished
 	ring.queue_free()
 
+func _animate_wait(actor: Node2D) -> void:
+	var hush := ColorRect.new()
+	hush.color = Color(0.72, 0.82, 1.0, 0.16)
+	hush.position = actor.global_position - Vector2(70, 18)
+	hush.size = Vector2(140, 6)
+	hush.z_index = 18
+	add_child(hush)
+	var tween := create_tween()
+	tween.tween_property(hush, "size:x", 190.0, 0.32)
+	tween.parallel().tween_property(hush, "position:x", hush.position.x - 25.0, 0.32)
+	tween.parallel().tween_property(hush, "modulate:a", 0.0, 0.32)
+	await tween.finished
+	hush.queue_free()
+
 func _animate_push(actor: Node2D) -> void:
 	var start_pos := actor.global_position
 	var tween := create_tween()
@@ -927,6 +1066,26 @@ func _animate_quiet(_actor: Node2D) -> void:
 		tween.finished.connect(func(): mote.queue_free())
 	await get_tree().create_timer(0.36).timeout
 
+func _animate_refuse(actor: Node2D) -> void:
+	var start_pos := actor.global_position
+	var tween := create_tween()
+	tween.tween_property(actor, "global_position", start_pos + Vector2(-22, 0), 0.18)
+	tween.tween_property(actor, "global_position", start_pos, 0.18)
+	await tween.finished
+	_spawn_flash(actor.global_position + Vector2(-18, -22), Color(0.96, 0.74, 0.82, 0.22))
+
+func _animate_stop(actor: Node2D) -> void:
+	var line := ColorRect.new()
+	line.color = Color(0.94, 0.94, 1.0, 0.20)
+	line.position = actor.global_position - Vector2(5, 70)
+	line.size = Vector2(10, 92)
+	line.z_index = 18
+	add_child(line)
+	var tween := create_tween()
+	tween.tween_property(line, "modulate:a", 0.0, 0.42)
+	await tween.finished
+	line.queue_free()
+
 func _resolve_target(target: EncounterTarget) -> void:
 	if task_resolved:
 		return
@@ -946,6 +1105,14 @@ func _resolve_target(target: EncounterTarget) -> void:
 		tween.parallel().tween_property(target_node, "modulate", Color(0.82, 0.96, 1.0, 0.78), 0.55)
 	elif target.kind == "shadow":
 		tween.parallel().tween_property(target_node, "scale", Vector2(1.20, 0.72), 0.55)
+	elif target.kind == "blank":
+		tween.parallel().tween_property(target_node, "rotation", 0.08, 0.55)
+	elif target.kind == "bell":
+		tween.parallel().tween_property(target_node, "scale", Vector2(0.88, 0.88), 0.55)
+	elif target.kind == "letter":
+		tween.parallel().tween_property(target_node, "position:y", target_node.position.y - 14.0, 0.55)
+	elif target.kind == "name":
+		tween.parallel().tween_property(target_node, "modulate", Color(0.92, 0.92, 1.0, 0.88), 0.55)
 	await tween.finished
 
 func _on_friend_finished(success: bool) -> void:
@@ -971,11 +1138,11 @@ func _finish_task() -> void:
 	if fade_rect != null:
 		tween.parallel().tween_property(fade_rect, "modulate:a", 0.52, 0.64)
 	await tween.finished
-	if task_index >= CHAPTER_TASK_COUNT - 1:
+	if task_index >= _task_count() - 1:
 		chapter_complete = true
 		_play_feedback("chapter")
-		_say("寂静的概率花园安静下来。莉莉丝学会了读 workflow 留下的原因。")
-		_show_room_banner("Chapter 1 完成\n寂静的概率花园")
+		_say(_chapter_completion_text())
+		_show_room_banner(_chapter_complete_banner_text())
 		await get_tree().create_timer(1.2).timeout
 		chapter_completed.emit()
 	else:
@@ -988,7 +1155,7 @@ func _finish_task() -> void:
 func _show_room_banner(text: String) -> void:
 	if chapter_banner == null:
 		return
-	chapter_banner.text = "Chapter 1\n%s" % text
+	chapter_banner.text = "%s\n%s" % [_chapter_heading(), text]
 	chapter_banner.modulate.a = 0.0
 	var tween := create_tween()
 	tween.tween_property(chapter_banner, "modulate:a", 1.0, 0.22)
@@ -997,9 +1164,9 @@ func _show_room_banner(text: String) -> void:
 
 func _update_guidance() -> void:
 	var target: EncounterTarget = _current_target()
-	objective_label.text = "目标：搭建 workflow，运行后根据 trace 调整。"
+	objective_label.text = _chapter_objective_text()
 	target_label.text = "%s  需要终端动作：%s" % [target.title, target.required_action]
-	progress_label.text = "任务 %d/%d" % [task_index + 1, CHAPTER_TASK_COUNT]
+	progress_label.text = "任务 %d/%d" % [task_index + 1, _task_count()]
 	if last_result != null:
 		confidence_label.text = last_result.summary()
 	else:
@@ -1010,13 +1177,14 @@ func _update_guidance() -> void:
 		if last_result != null:
 			last_text = "上次运行：%s" % (last_result.failure_reason if not last_result.success else "任务完成")
 			next_text = "下一次：%s" % last_result.next_hint
-		target_card_label.text = "%s\n%s\n需要：%s\n终端：%s\n阈值：%d%%  风险上限：%d\n%s\n%s" % [
+		target_card_label.text = "%s\n%s\n需要：%s\n终端：%s\n阈值：%d%%  风险上限：%d  代价上限：%d\n%s\n%s" % [
 			target.title,
 			target.description_text,
 			target.evidence_text,
 			target.action_text,
 			target.confidence_required,
 			target.risk_limit,
+			target.cost_limit,
 			last_text,
 			next_text,
 		]
@@ -1035,7 +1203,7 @@ func _update_prompt() -> void:
 
 func _on_inventory_changed(_blocks: Array[String]) -> void:
 	if builder != null:
-		builder.set_goal_hint(_current_target().title, "运行 workflow，读 trace，再调整节点")
+		builder.set_goal_hint(_current_target().title, _inventory_goal_text())
 
 func _play_feedback(kind: String) -> void:
 	if kind == "pickup":
