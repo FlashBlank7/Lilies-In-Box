@@ -86,85 +86,102 @@ func set_workflow_feedback(summary: String, trace: Array[String], next_hint_text
 func _build_ui() -> void:
 	var backplate := NinePatchRect.new()
 	backplate.texture = PANEL_TEXTURE
-	backplate.position = Vector2(24, 334)
-	backplate.size = Vector2(650, 314)
+	backplate.position = Vector2(158, 334)
+	backplate.size = Vector2(642, 306)
 	backplate.modulate = Color(0.48, 0.40, 0.74, 0.26)
 	add_child(backplate)
 
 	panel = PanelContainer.new()
-	panel.position = Vector2(32, 342)
-	panel.custom_minimum_size = Vector2(634, 298)
+	panel.position = Vector2(166, 342)
+	panel.custom_minimum_size = Vector2(626, 286)
 	panel.add_theme_stylebox_override("panel", _make_panel_style())
 	add_child(panel)
 
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 18)
-	margin.add_theme_constant_override("margin_right", 18)
-	margin.add_theme_constant_override("margin_top", 16)
-	margin.add_theme_constant_override("margin_bottom", 16)
+	margin.add_theme_constant_override("margin_left", 14)
+	margin.add_theme_constant_override("margin_right", 14)
+	margin.add_theme_constant_override("margin_top", 12)
+	margin.add_theme_constant_override("margin_bottom", 12)
 	panel.add_child(margin)
 
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 8)
+	box.add_theme_constant_override("separation", 6)
 	margin.add_child(box)
 
 	var title := Label.new()
 	title.text = "莉莉丝的回声抽屉"
-	title.add_theme_font_size_override("font_size", 23)
+	title.add_theme_font_size_override("font_size", 21)
 	title.modulate = Color(0.94, 0.90, 1.0)
 	box.add_child(title)
 
+	var content := HBoxContainer.new()
+	content.add_theme_constant_override("separation", 14)
+	box.add_child(content)
+
+	var left_column := VBoxContainer.new()
+	left_column.custom_minimum_size = Vector2(238, 0)
+	left_column.add_theme_constant_override("separation", 6)
+	content.add_child(left_column)
+
 	var inventory_grid := GridContainer.new()
-	inventory_grid.columns = 5
-	inventory_grid.add_theme_constant_override("h_separation", 8)
-	inventory_grid.add_theme_constant_override("v_separation", 8)
-	box.add_child(inventory_grid)
+	inventory_grid.columns = 2
+	inventory_grid.add_theme_constant_override("h_separation", 6)
+	inventory_grid.add_theme_constant_override("v_separation", 5)
+	left_column.add_child(inventory_grid)
 	for i in range(BLOCK_ORDER.size()):
 		var slot := _make_slot_label()
 		inventory_slots.append(slot)
 		inventory_grid.add_child(slot)
 
 	routine_label = Label.new()
-	routine_label.add_theme_font_size_override("font_size", 22)
+	routine_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	routine_label.custom_minimum_size = Vector2(232, 38)
+	routine_label.add_theme_font_size_override("font_size", 17)
 	routine_label.modulate = Color(1.0, 0.95, 0.82)
-	box.add_child(routine_label)
+	left_column.add_child(routine_label)
+
+	deploy_label = Label.new()
+	deploy_label.add_theme_font_size_override("font_size", 17)
+	deploy_label.modulate = Color(0.82, 0.94, 1.0)
+	left_column.add_child(deploy_label)
+
+	var right_column := VBoxContainer.new()
+	right_column.custom_minimum_size = Vector2(340, 0)
+	right_column.add_theme_constant_override("separation", 6)
+	content.add_child(right_column)
 
 	workflow_summary_label = Label.new()
-	workflow_summary_label.add_theme_font_size_override("font_size", 18)
+	workflow_summary_label.add_theme_font_size_override("font_size", 17)
 	workflow_summary_label.modulate = Color(0.82, 0.94, 1.0)
-	box.add_child(workflow_summary_label)
+	right_column.add_child(workflow_summary_label)
 
 	trace_label = Label.new()
 	trace_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	trace_label.custom_minimum_size = Vector2(570, 44)
-	trace_label.add_theme_font_size_override("font_size", 16)
+	trace_label.custom_minimum_size = Vector2(330, 62)
+	trace_label.add_theme_font_size_override("font_size", 15)
 	trace_label.modulate = Color(0.74, 0.78, 0.92)
-	box.add_child(trace_label)
+	right_column.add_child(trace_label)
 
 	next_hint_label = Label.new()
 	next_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	next_hint_label.custom_minimum_size = Vector2(570, 30)
-	next_hint_label.add_theme_font_size_override("font_size", 16)
+	next_hint_label.custom_minimum_size = Vector2(330, 38)
+	next_hint_label.add_theme_font_size_override("font_size", 15)
 	next_hint_label.modulate = Color(0.92, 0.86, 1.0)
-	box.add_child(next_hint_label)
+	right_column.add_child(next_hint_label)
 
 	hint_label = Label.new()
 	hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint_label.custom_minimum_size = Vector2(570, 34)
+	hint_label.custom_minimum_size = Vector2(330, 34)
+	hint_label.add_theme_font_size_override("font_size", 14)
 	hint_label.modulate = Color(0.78, 0.76, 0.88)
-	box.add_child(hint_label)
-
-	deploy_label = Label.new()
-	deploy_label.add_theme_font_size_override("font_size", 18)
-	deploy_label.modulate = Color(0.82, 0.94, 1.0)
-	box.add_child(deploy_label)
+	right_column.add_child(hint_label)
 
 func _make_slot_label() -> Label:
 	var label := Label.new()
-	label.custom_minimum_size = Vector2(112, 34)
+	label.custom_minimum_size = Vector2(112, 28)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 16)
+	label.add_theme_font_size_override("font_size", 14)
 	label.add_theme_stylebox_override("normal", _make_slot_style(Color(0.10, 0.10, 0.16, 0.92), Color(0.42, 0.36, 0.58, 0.90)))
 	return label
 

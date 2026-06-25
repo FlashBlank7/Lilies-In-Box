@@ -466,7 +466,7 @@ func _add_ui() -> void:
 
 	var target_card := PanelContainer.new()
 	target_card.position = Vector2(754, 112)
-	target_card.custom_minimum_size = Vector2(480, 236)
+	target_card.custom_minimum_size = Vector2(480, 206)
 	target_card.add_theme_stylebox_override("panel", _make_panel_style(Color(0.035, 0.040, 0.060, 0.88), Color(0.32, 0.40, 0.62, 0.78), 8))
 	hud.add_child(target_card)
 
@@ -479,7 +479,7 @@ func _add_ui() -> void:
 
 	target_card_label = Label.new()
 	target_card_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	target_card_label.add_theme_font_size_override("font_size", 16)
+	target_card_label.add_theme_font_size_override("font_size", 15)
 	target_card_label.modulate = Color(0.86, 0.88, 1.0)
 	target_margin.add_child(target_card_label)
 
@@ -1200,14 +1200,11 @@ func _update_guidance() -> void:
 		if last_result != null:
 			last_text = "上次运行：%s" % (last_result.failure_reason if not last_result.success else "任务完成")
 			next_text = "下一次：%s" % last_result.next_hint
-		target_card_label.text = "%s\n%s\n需要：%s\n收尾：%s\n阈值：%d%%  风险上限：%d  代价上限：%d\n%s\n%s" % [
+		target_card_label.text = "%s\n%s\n需要：%s\n收尾：%s\n%s\n%s" % [
 			target.title,
 			target.description_text,
 			target.evidence_text,
 			target.action_text,
-			target.confidence_required,
-			target.risk_limit,
-			target.cost_limit,
 			last_text,
 			next_text,
 		]

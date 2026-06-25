@@ -1,5 +1,11 @@
 extends "res://scripts/chapter01_workflow.gd"
 
+var dim_marks: Array[Node2D] = []
+
+func _load_task(next_index: int) -> void:
+	dim_marks.clear()
+	super._load_task(next_index)
+
 func _chapter_heading() -> String:
 	return "Chapter 2"
 
@@ -57,7 +63,7 @@ func _build_targets() -> void:
 		"2-3 太亮的门",
 		"door",
 		"Push",
-		["visual", "waiting"],
+		["visual"],
 		42,
 		34,
 		60,
@@ -167,3 +173,48 @@ func _on_workflow_failed(target: EncounterTarget, _result: WorkflowResult) -> vo
 		tween.tween_property(mote, "position:y", mote.position.y - 26.0, 0.55)
 		tween.parallel().tween_property(mote, "modulate:a", 0.0, 0.55)
 		tween.finished.connect(func(): mote.queue_free())
+	if _result.failure_reason.contains("代价太重"):
+		_add_dim_friend_mark(target.position + Vector2(-118, 28))
+
+func _add_dim_friend_mark(pos: Vector2) -> void:
+	var mark := Node2D.new()
+	mark.position = pos
+	mark.z_index = 8
+	level_root.add_child(mark)
+	dim_marks.append(mark)
+
+	var body := Polygon2D.new()
+	body.polygon = PackedVector2Array([
+		Vector2(0, -58),
+		Vector2(26, -18),
+		Vector2(16, 20),
+		Vector2(-16, 20),
+		Vector2(-26, -18),
+	])
+	body.color = Color(0.34, 0.30, 0.48, 0.58)
+	mark.add_child(body)
+
+	var dim_core := ColorRect.new()
+	dim_core.color = Color(0.94, 0.84, 1.0, 0.18)
+	dim_core.position = Vector2(-10, -36)
+	dim_core.size = Vector2(20, 5)
+	mark.add_child(dim_core)
+
+	var thread := Line2D.new()
+	thread.width = 2.0
+	thread.default_color = Color(0.96, 0.74, 0.88, 0.18)
+	thread.points = PackedVector2Array([Vector2(-24, -10), Vector2(-74, -18)])
+	mark.add_child(thread)
+
+	mark.modulate.a = 0.0
+	var tween := create_tween()
+	tween.tween_property(mark, "modulate:a", 1.0, 0.34)
+	tween.parallel().tween_property(mark, "position:y", mark.position.y + 8.0, 0.34)
+
+func _resolve_target(target: EncounterTarget) -> void:
+	await super._resolve_target(target)
+	for i in range(dim_marks.size()):
+		var mark: Node2D = dim_marks[i]
+		if mark != null and is_instance_valid(mark):
+			var tween := create_tween()
+			tween.tween_property(mark, "modulate:a", 0.18, 0.42)

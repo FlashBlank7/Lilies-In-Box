@@ -235,10 +235,10 @@ func _test_workflow_evaluator() -> void:
 	bell.silence_required = 24
 	var stopped: WorkflowResult = WorkflowEvaluator.evaluate(["Listen", "Wait", "Stop"], bell)
 	_assert_bool(stopped.success, "workflow evaluator accepts Wait and Stop")
-	var bright: EncounterTarget = _make_eval_target("bright", "太亮的门", "door", "Push", ["visual", "waiting"], 42, 34, 60)
+	var bright: EncounterTarget = _make_eval_target("bright", "太亮的门", "door", "Push", ["visual"], 42, 34, 60)
 	bright.cost_limit = 12
-	var costly: WorkflowResult = WorkflowEvaluator.evaluate(["See", "Push"], bright)
-	_assert_bool(not costly.success and costly.failure_reason.contains("缺少证据"), "workflow evaluator asks for waiting before costly push")
+	var costly: WorkflowResult = WorkflowEvaluator.evaluate(["See", "Compare", "Push"], bright)
+	_assert_bool(not costly.success and costly.failure_reason.contains("代价太重"), "workflow evaluator exposes high action cost")
 	var lighter: WorkflowResult = WorkflowEvaluator.evaluate(["See", "Wait", "Push"], bright)
 	_assert_bool(lighter.success, "workflow evaluator lets Wait reduce action cost")
 

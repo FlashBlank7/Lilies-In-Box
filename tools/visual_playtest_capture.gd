@@ -17,6 +17,7 @@ func _run() -> void:
 	DirAccess.make_dir_recursive_absolute(OUTPUT_DIR)
 	await _capture_workflow_scene(CHAPTER_02_SCENE, "chapter2_first.png", 0, ALL_BLOCKS, false)
 	await _capture_workflow_scene(CHAPTER_02_SCENE, "chapter2_drawer.png", 0, ALL_BLOCKS, true)
+	await _capture_chapter2_cost_shadow()
 	await _capture_workflow_scene(CHAPTER_03_SCENE, "chapter3_first.png", 0, ALL_BLOCKS, false)
 	await _capture_workflow_scene(CHAPTER_03_SCENE, "chapter3_drawer.png", 0, ALL_BLOCKS, true)
 	await _capture_chapter3_failure()
@@ -54,6 +55,20 @@ func _capture_chapter3_failure() -> void:
 	active_scene.call("_deploy_friend", sequence)
 	await create_timer(2.5).timeout
 	await _save_viewport("chapter3_failure_echo.png")
+
+func _capture_chapter2_cost_shadow() -> void:
+	await _clear_current_scene()
+	active_scene = CHAPTER_02_SCENE.instantiate()
+	if active_scene.has_method("configure_stage"):
+		active_scene.call("configure_stage", 2, ALL_BLOCKS)
+	root.add_child(active_scene)
+	await process_frame
+	await process_frame
+	await create_timer(2.05).timeout
+	var sequence: Array[String] = ["See", "Compare", "Push"]
+	active_scene.call("_deploy_friend", sequence)
+	await create_timer(2.5).timeout
+	await _save_viewport("chapter2_cost_shadow.png")
 
 func _save_viewport(file_name: String) -> void:
 	await process_frame
