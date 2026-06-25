@@ -1,0 +1,215 @@
+extends CanvasLayer
+class_name FriendBuilder
+
+signal deploy_requested(sequence: Array[String])
+signal status_requested(text: String)
+signal sequence_changed(sequence: Array[String])
+signal feedback_requested(kind: String)
+
+const PANEL_TEXTURE := preload("res://assets/ui/button_rectangle_depth_flat.png")
+const BLOCK_ORDER: Array[String] = ["See", "Push", "Remember"]
+
+var inventory: BlockInventory
+var sequence: Array[String] = []
+var panel: PanelContainer
+var inventory_slots: Array[Label] = []
+var routine_label: Label
+var hint_label: Label
+var deploy_label: Label
+var goal_text := "See -> Push"
+var room_title := "第一扇门"
+
+func setup(block_inventory: BlockInventory) -> void:
+	inventory = block_inventory
+	inventory.changed.connect(_on_inventory_changed)
+	_refresh()
+
+func _ready() -> void:
+	layer = 12
+	_build_ui()
+	visible = false
+	_refresh()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("toggle_builder"):
+		visible = not visible
+		feedback_requested.emit("drawer")
+		if visible:
+			status_requested.emit("抽屉轻轻打开。%s 想听见：%s。" % [room_title, goal_text])
+		else:
+			status_requested.emit("抽屉合上了，积木还在里面等她。")
+		get_viewport().set_input_as_handled()
+		return
+	if not visible:
+		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_1:
+			_try_add_index(0)
+		elif event.keycode == KEY_2:
+			_try_add_index(1)
+		elif event.keycode == KEY_3:
+			_try_add_index(2)
+		elif event.keycode == KEY_BACKSPACE:
+			_remove_last()
+		elif event.is_action_pressed("deploy_friend"):
+			_try_deploy()
+		get_viewport().set_input_as_handled()
+
+func clear_sequence() -> void:
+	sequence.clear()
+	sequence_changed.emit(sequence.duplicate())
+	_refresh()
+
+func set_goal_hint(new_room_title: String, new_goal_text: String) -> void:
+	room_title = new_room_title
+	goal_text = new_goal_text
+	_refresh()
+
+func _build_ui() -> void:
+	var backplate := NinePatchRect.new()
+	backplate.texture = PANEL_TEXTURE
+	backplate.position = Vector2(26, 396)
+	backplate.size = Vector2(626, 270)
+	backplate.modulate = Color(0.48, 0.40, 0.74, 0.26)
+	add_child(backplate)
+
+	panel = PanelContainer.new()
+	panel.position = Vector2(34, 404)
+	panel.custom_minimum_size = Vector2(610, 254)
+	panel.add_theme_stylebox_override("panel", _make_panel_style())
+	add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 18)
+	margin.add_theme_constant_override("margin_right", 18)
+	margin.add_theme_constant_override("margin_top", 16)
+	margin.add_theme_constant_override("margin_bottom", 16)
+	panel.add_child(margin)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 12)
+	margin.add_child(box)
+
+	var title := Label.new()
+	title.text = "莉莉丝的拼装抽屉"
+	title.add_theme_font_size_override("font_size", 23)
+	title.modulate = Color(0.94, 0.90, 1.0)
+	box.add_child(title)
+
+	var inventory_row := HBoxContainer.new()
+	inventory_row.add_theme_constant_override("separation", 10)
+	box.add_child(inventory_row)
+	for i in range(3):
+		var slot := _make_slot_label()
+		inventory_slots.append(slot)
+		inventory_row.add_child(slot)
+
+	routine_label = Label.new()
+	routine_label.add_theme_font_size_override("font_size", 22)
+	routine_label.modulate = Color(1.0, 0.95, 0.82)
+	box.add_child(routine_label)
+
+	hint_label = Label.new()
+	hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint_label.custom_minimum_size = Vector2(540, 48)
+	hint_label.modulate = Color(0.78, 0.76, 0.88)
+	box.add_child(hint_label)
+
+	deploy_label = Label.new()
+	deploy_label.add_theme_font_size_override("font_size", 18)
+	deploy_label.modulate = Color(0.82, 0.94, 1.0)
+	box.add_child(deploy_label)
+
+func _make_slot_label() -> Label:
+	var label := Label.new()
+	label.custom_minimum_size = Vector2(180, 42)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 18)
+	label.add_theme_stylebox_override("normal", _make_slot_style(Color(0.10, 0.10, 0.16, 0.92), Color(0.42, 0.36, 0.58, 0.90)))
+	return label
+
+func _make_panel_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.055, 0.050, 0.075, 0.90)
+	style.border_color = Color(0.45, 0.36, 0.62, 0.95)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(8)
+	return style
+
+func _make_slot_style(bg: Color, border: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = bg
+	style.border_color = border
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(6)
+	return style
+
+func _try_add_index(index: int) -> void:
+	var blocks: Array[String] = _ordered_blocks()
+	if index >= blocks.size():
+		feedback_requested.emit("error")
+		status_requested.emit("那个槽位还空着，像一枚没有醒来的名字。")
+		return
+	if sequence.size() >= 3:
+		feedback_requested.emit("error")
+		status_requested.emit("朋友已经装得满满的了。Backspace 可以拆下最后一块。")
+		return
+	var block_id: String = blocks[index]
+	sequence.append(block_id)
+	feedback_requested.emit("block")
+	status_requested.emit("%s 接上去了，朋友的轮廓亮了一下。" % block_id)
+	sequence_changed.emit(sequence.duplicate())
+	_refresh()
+
+func _remove_last() -> void:
+	if sequence.is_empty():
+		feedback_requested.emit("error")
+		status_requested.emit("还没有积木可以拆下。")
+		return
+	var block_id: String = String(sequence.pop_back())
+	feedback_requested.emit("drawer")
+	status_requested.emit("%s 回到了抽屉里。" % block_id)
+	sequence_changed.emit(sequence.duplicate())
+	_refresh()
+
+func _try_deploy() -> void:
+	if sequence.is_empty():
+		feedback_requested.emit("error")
+		status_requested.emit("抽屉里还没有朋友的顺序。")
+		return
+	deploy_requested.emit(sequence.duplicate())
+
+func _on_inventory_changed(_blocks: Array[String]) -> void:
+	_refresh()
+
+func _refresh() -> void:
+	if inventory_slots.is_empty():
+		return
+	var blocks: Array[String] = _ordered_blocks()
+	for i in range(inventory_slots.size()):
+		var label: Label = inventory_slots[i]
+		if i < blocks.size():
+			label.text = "%d  %s" % [i + 1, blocks[i]]
+			label.modulate = Color(0.96, 0.94, 1.0)
+		else:
+			label.text = "%d  ..." % [i + 1]
+			label.modulate = Color(0.45, 0.43, 0.52)
+	routine_label.text = "Routine  " + (" -> ".join(sequence) if not sequence.is_empty() else "等待连接")
+	hint_label.text = "按 1/2/3 选择已拥有的积木，Backspace 撤回，Enter 释放。%s 需要 %s。" % [room_title, goal_text]
+	deploy_label.text = "Enter 释放朋友" if not sequence.is_empty() else "先给朋友接上一块积木"
+
+func _ordered_blocks() -> Array[String]:
+	var raw: Array[String] = []
+	if inventory:
+		raw = inventory.all_blocks()
+	var ordered: Array[String] = []
+	for i in range(BLOCK_ORDER.size()):
+		var block_id: String = BLOCK_ORDER[i]
+		if raw.has(block_id):
+			ordered.append(block_id)
+	for i in range(raw.size()):
+		var block_id: String = raw[i]
+		if not ordered.has(block_id):
+			ordered.append(block_id)
+	return ordered

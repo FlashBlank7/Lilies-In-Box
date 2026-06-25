@@ -1,0 +1,8 @@
+.godot/
+*.tmp
+*.translation
+export/
+build/
+*.pck
+*.zip
+.DS_Store
